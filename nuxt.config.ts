@@ -2,11 +2,17 @@
 
 export default defineNuxtConfig({
   devtools: {
-    enabled: true
+    enabled: true,
   },
   nitro: {
     experimental: {
       websocket: true
     },
-  }
+  },
+  runtimeConfig: {
+    public: {
+      SOCKET_URL: process.env.SOCKET_URL,
+    },
+    private: {},
+  },
 })

@@ -17,7 +17,9 @@
 import { ref, onMounted } from 'vue';
 import { io } from 'socket.io-client';
 
-const socket = io.connect('http://localhost:3000');
+const config = useRuntimeConfig();
+const socketUrl = config.public.SOCKET_URL;
+const socket = io.connect(socketUrl);
 const divVideoChatLobby = ref(null);
 const userVideo = ref(null);
 const peerVideo = ref(null);
