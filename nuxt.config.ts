@@ -13,6 +13,9 @@ export default defineNuxtConfig({
     public: {
       SOCKET_URL: process.env.SOCKET_URL,
     },
-    private: {},
+    private: {
+      WEBRTC_ROOMS_MAP: {} as Record<string, any>,
+      LIMITED_PPL_A_ROOM: 2,
+    },
   },
 })

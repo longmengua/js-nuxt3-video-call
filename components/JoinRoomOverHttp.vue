@@ -135,21 +135,40 @@ const handleCandidate = async (candidate) => {
 };
 
 const fetchSignalingMessages = async () => {
-  const response = await fetch(`/messages?roomName=${roomName}`);
+  console.log("roomName:", roomName)
+  if (!roomName) {
+    return
+  }
+  const response = await fetch(`/api/messages?roomName=${roomName}`);
   const messages = await response.json();
   for (const message of messages) {
     if (message.type === 'offer') {
       await handleOffer(message.data);
-    } else if (message.type === 'answer') {
+      continue
+    } 
+    if (message.type === 'answer') {
       await handleAnswer(message.data);
-    } else if (message.type === 'candidate') {
+    } 
+    if (message.type === 'candidate') {
       await handleCandidate(message.data);
-    } else if (message.type === 'ready') {
+      continue
+    } 
+    if (message.type === 'ready') {
       onReady();
+      continue
     }
   }
-  setTimeout(fetchSignalingMessages, 1000); // Poll every second
 };
+
+const repeatFunc = async (func, time) => {
+  const t = time ?? 5000
+
+  if (!func) return
+  
+  await func()
+
+  setTimeout(() => repeatFunc(func, t), t); 
+}
 
 const onReady = async () => {
   if (creator) {
@@ -171,11 +190,7 @@ const onReady = async () => {
 };
 
 onMounted(() => {
-  divVideoChatLobby.value = document.getElementById('video-chat-lobby');
-  userVideo.value = document.getElementById('user-video');
-  peerVideo.value = document.getElementById('peer-video');
-  roomInput.value = document.getElementById('roomName');
-  fetchSignalingMessages(); // Start polling for signaling messages
+  repeatFunc(fetchSignalingMessages, 1000)
 });
 </script>
 
