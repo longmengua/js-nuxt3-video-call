@@ -1,18 +1,11 @@
+import { getWebRTCRoomByName } from "../middleware/state"
+
 export default defineEventHandler(async(event) => {
+  const defaultMessagesObj: Array<any> = []
   const query = getQuery(event)
   const roomName: string = query?.roomName as string ?? ""
-  const config = useRuntimeConfig()
-  const { WEBRTC_ROOMS_MAP } = config.private
-  const defaultMessagesObj: Array<any> = []
 
-  if (!WEBRTC_ROOMS_MAP) {
-    throw createError({
-      statusCode: 500,
-      statusMessage: 'WEBRTC_ROOMS_MAP should not be undefind',
-    })
-  }
-
-  const room = WEBRTC_ROOMS_MAP[roomName]
+  const room = await getWebRTCRoomByName(roomName)
   if (!room) {
     return defaultMessagesObj
   }

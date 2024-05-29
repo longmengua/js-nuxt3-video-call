@@ -4,8 +4,8 @@
         <AppAlert>
             This is an auto-imported component
         </AppAlert>
-        <!-- <JoinRoomOverSocket>Join Room over websocket</JoinRoomOverSocket> -->
-        <JoinRoomOverHttp>Join Room over http</JoinRoomOverHttp>
+        <JoinRoomOverSocket>Join Room over websocket</JoinRoomOverSocket>
+        <!-- <JoinRoomOverHttp>Join Room over http</JoinRoomOverHttp> -->
     </div>
 </template>
   

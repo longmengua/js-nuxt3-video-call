@@ -1,14 +1,9 @@
+import { getWebRTCRoomByName } from "../middleware/state"
+
 export default defineEventHandler(async (event) => {
   const { roomName } = await readBody(event)
   const config = useRuntimeConfig()
-  const { WEBRTC_ROOMS_MAP, LIMITED_PPL_A_ROOM } = config.private
-
-  if (!WEBRTC_ROOMS_MAP) {
-    throw createError({
-      statusCode: 500,
-      statusMessage: 'WEBRTC_ROOMS_MAP should not be undefind',
-    })
-  }
+  const { LIMITED_PPL_A_ROOM } = config.private
 
   if (!LIMITED_PPL_A_ROOM) {
     throw createError({
@@ -24,11 +19,12 @@ export default defineEventHandler(async (event) => {
     })
   }
 
-  if (!WEBRTC_ROOMS_MAP[roomName]) {
+  const room = await getWebRTCRoomByName(roomName)
+  if (!room) {
     return { status: 'created' }
   }
 
-  if (WEBRTC_ROOMS_MAP[roomName].clients.length < LIMITED_PPL_A_ROOM) {
+  if (room.clients.length < LIMITED_PPL_A_ROOM) {
     return { status: 'joined' }
   }
   

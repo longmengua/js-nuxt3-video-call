@@ -7,8 +7,8 @@
       <button id="join" @click="joinRoom">Join</button>
     </div>
     <div id="video-chat-room">
-      <video id="user-video" ref="userVideo" autoplay></video>
-      <video id="peer-video" ref="peerVideo" autoplay></video>
+      <video id="user-video" ref="userVideo" autoplay muted playsinline style="width: 320px; height: 240px;"></video>
+      <video id="peer-video" ref="peerVideo" autoplay playsinline style="width: 320px; height: 240px;"></video>
     </div>
   </div>
 </template>
@@ -33,6 +33,7 @@ const iceServers = {
 };
 
 const joinRoom = async () => {
+  console.log('socket.on joinRoom');
   if (roomInput.value.value === '') {
     alert('Please enter a room name');
   } else {
@@ -56,6 +57,7 @@ const joinRoom = async () => {
 };
 
 const onCreated = async () => {
+  console.log('socket.on onCreated');
   creator = true;
   try {
     userStream = await navigator.mediaDevices.getUserMedia({
@@ -70,11 +72,12 @@ const onCreated = async () => {
 };
 
 const onJoined = async () => {
+  console.log('socket.on onJoined');
   creator = false;
   try {
     userStream = await navigator.mediaDevices.getUserMedia({
       audio: true,
-      video: { width: 1280, height: 720 },
+      video: true,
     });
     divVideoChatLobby.value.style.display = 'none';
     userVideo.value.srcObject = userStream;
@@ -107,6 +110,7 @@ const onTrackFunction = (event) => {
 };
 
 const handleOffer = async (offer) => {
+  console.log('socket.on offer');
   if (!creator) {
     rtcPeerConnection = new RTCPeerConnection(iceServers);
     rtcPeerConnection.onicecandidate = onIceCandidateFunction;
@@ -127,10 +131,12 @@ const handleOffer = async (offer) => {
 };
 
 const handleAnswer = async (answer) => {
+  console.log('socket.on answer');
   await rtcPeerConnection.setRemoteDescription(new RTCSessionDescription(answer));
 };
 
 const handleCandidate = async (candidate) => {
+  console.log('socket.on candidate');
   await rtcPeerConnection.addIceCandidate(new RTCIceCandidate(candidate));
 };
 
@@ -171,6 +177,7 @@ const repeatFunc = async (func, time) => {
 }
 
 const onReady = async () => {
+  console.log('socket.on ready');
   if (creator) {
     rtcPeerConnection = new RTCPeerConnection(iceServers);
     rtcPeerConnection.onicecandidate = onIceCandidateFunction;
@@ -190,6 +197,10 @@ const onReady = async () => {
 };
 
 onMounted(() => {
+  divVideoChatLobby.value = document.getElementById('video-chat-lobby');
+  userVideo.value = document.getElementById('user-video');
+  peerVideo.value = document.getElementById('peer-video');
+  roomInput.value = document.getElementById('roomName');
   repeatFunc(fetchSignalingMessages, 1000)
 });
 </script>
