@@ -1,6 +1,14 @@
 # Use the official Node.js image as the base image
 FROM node:16-alpine
 
+# Build time arguments
+ARG APP_ENV=""
+ARG ENV_FILE_NAME=""
+ARG PAT=""
+
+# Add "set -e" to stop execution on error
+RUN set -e
+
 # Set the working directory
 WORKDIR /app
 
@@ -13,8 +21,14 @@ RUN npm install
 # Copy the rest of the application code
 COPY . .
 
+# Download .env.prod from github private repo, that's why it needs pat of github
+RUN if [ "$APP_ENV" = "prod" ]; then curl -H "Authorization: token $PAT" -LJO https://raw.githubusercontent.com/karwee/karwee-devops/main/wmch/web/.env.prod; fi
+
+# Copy the environment file
+RUN cp "$ENV_FILE_NAME" .env
+
 # Build the application
-RUN npm run build
+RUN npm run build || { exit 1; }
 
 # Expose the port the app runs on
 EXPOSE 80
