@@ -40,9 +40,22 @@ function deploy_steps {
         display_error "Unsupported environment: $1, options: dev, uat, prod"
     fi
 
+    if [ $2 == "ssr" ]; then
+        DOCKERFILE_NAME=dockerfile.ssr
+    elif [ $2 == "ssg" ]; then
+        DOCKERFILE_NAME=dockerfile.ssg
+    else
+        display_error "Unsupported environment: $2, options: ssr, ssg"
+    fi
+
     # Step 3
     echo "===> Start building"
-    docker build --build-arg PAT="$3" --build-arg ENV_FILE_NAME=$ENV_FILE_NAME --build-arg APP_ENV="$1" -t $NAME .
+    docker build \
+        -f $DOCKERFILE_NAME \
+        --build-arg PAT="$3" \
+        --build-arg ENV_FILE_NAME=$ENV_FILE_NAME \
+        --build-arg APP_ENV="$1" \
+        -t $NAME .
 
     # Check if docker build failed
     if [ $? -ne 0 ]; then
@@ -51,7 +64,10 @@ function deploy_steps {
 
     # Step 4
     echo "===> Start deploying"
-    docker rm -f $NAME && docker run -d -p $PORT:80 --network=karwee_wmch --name $NAME $NAME
+    docker rm -f $NAME \
+        && docker run -d -p $PORT:80 \
+        --network=app \
+        --name $NAME $NAME
 
     # Step 5
     echo "===> Clean cache of container and volume"
