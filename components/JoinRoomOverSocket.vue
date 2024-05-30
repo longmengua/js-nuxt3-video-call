@@ -9,6 +9,8 @@
     <div id="video-chat-room">
       <video id="user-video" ref="userVideo" autoplay muted playsinline style="width: 320px; height: 240px;"></video>
       <video id="peer-video" ref="peerVideo" autoplay playsinline style="width: 320px; height: 240px;"></video>
+      <button @click="toggleMic">Toggle Microphone</button>
+      <button @click="toggleCamera">Toggle Camera</button>
     </div>
   </div>
 </template>
@@ -38,7 +40,6 @@ const iceServers = {
 };
 
 const joinRoom = () => {
-  // console.log('joinRoom');
   if (roomInput.value.value === '') {
     alert('Please enter a room name');
   } else {
@@ -48,22 +49,29 @@ const joinRoom = () => {
 };
 
 const OnIceCandidateFunction = (event) => {
-  // console.log('OnIceCandidateFunction');
   if (event.candidate) {
     socket.emit('candidate', event.candidate, roomName);
   }
 };
 
 const OnTrackFunction = (event) => {
-  // console.log('OnTrackFunction');
   peerVideo.value.srcObject = event.streams[0];
   peerVideo.value.onloadedmetadata = function (e) {
     peerVideo.value.play();
   };
 };
 
+const toggleMic = () => {
+  const audioTrack = userStream.getAudioTracks()[0];
+  audioTrack.enabled = !audioTrack.enabled;
+};
+
+const toggleCamera = () => {
+  const videoTrack = userStream.getVideoTracks()[0];
+  videoTrack.enabled = !videoTrack.enabled;
+};
+
 socket.on('created', () => {
-  console.log('socket.on created');
   creator = true;
 
   navigator.mediaDevices
@@ -85,7 +93,6 @@ socket.on('created', () => {
 });
 
 socket.on('joined', () => {
-  console.log('socket.on joined');
   creator = false;
   navigator.mediaDevices
     .getUserMedia({
@@ -107,12 +114,10 @@ socket.on('joined', () => {
 });
 
 socket.on('full', () => {
-  console.log('socket.on full');
   alert("Room is Full, Can't Join");
 });
 
 socket.on('ready', () => {
-  console.log('socket.on ready');
   if (creator) {
     rtcPeerConnection = new RTCPeerConnection(iceServers);
     rtcPeerConnection.onicecandidate = OnIceCandidateFunction;
@@ -132,13 +137,11 @@ socket.on('ready', () => {
 });
 
 socket.on('candidate', (candidate) => {
-  console.log('socket.on candidate');
   const icecandidate = new RTCIceCandidate(candidate);
   rtcPeerConnection.addIceCandidate(icecandidate);
 });
 
 socket.on('offer', (offer) => {
-  console.log('socket.on offer');
   if (!creator) {
     rtcPeerConnection = new RTCPeerConnection(iceServers);
     rtcPeerConnection.onicecandidate = OnIceCandidateFunction;
@@ -159,12 +162,10 @@ socket.on('offer', (offer) => {
 });
 
 socket.on('answer', (answer) => {
-  console.log('socket.on answer');
   rtcPeerConnection.setRemoteDescription(answer);
 });
 
 onMounted(() => {
-  // Ensure these references are set correctly
   divVideoChatLobby.value = document.getElementById('video-chat-lobby');
   userVideo.value = document.getElementById('user-video');
   peerVideo.value = document.getElementById('peer-video');
