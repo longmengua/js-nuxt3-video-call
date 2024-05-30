@@ -6,30 +6,41 @@
       <input id="roomName" type="text" placeholder="Room Name" ref="roomInput" />
       <button id="join" @click="joinRoom">Join</button>
     </div>
-    <div id="video-chat-room">
-      <video id="user-video" ref="userVideo" autoplay muted playsinline style="width: 320px; height: 240px;"></video>
-      <video id="peer-video" ref="peerVideo" autoplay playsinline style="width: 320px; height: 240px;"></video>
-      <button @click="toggleMic">Toggle Microphone</button>
-      <button @click="toggleCamera">Toggle Camera</button>
+    <div id="video-group" ref="divVideoGroup">
+      <div id="toggleBtns">
+        <button @click="toggleMic">Toggle Microphone</button>
+        <button @click="toggleCamera">Toggle Camera</button>
+        <button @click="toggleScreenShare">Toggle Screen Share</button>
+      </div>
+      <div id="video-chat-room">
+        <video id="user-video" ref="userVideo" autoplay muted playsinline style="width: 320px; height: 240px;"></video>
+        <video id="peer-video" ref="peerVideo" autoplay playsinline style="width: 320px; height: 240px;"></video>
+        <video id="screen-video" ref="screenVideo" autoplay playsinline style="width: 320px; height: 240px;"></video>
+      </div>
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue';
+import { ref } from 'vue';
 import { io } from 'socket.io-client';
 
 const config = useRuntimeConfig();
 const socketUrl = config.public.SOCKET_URL;
 const socket = io.connect(socketUrl);
 const divVideoChatLobby = ref(null);
+const divVideoGroup = ref(null);
 const userVideo = ref(null);
 const peerVideo = ref(null);
+const screenVideo = ref(null);
 const roomInput = ref(null);
-let roomName;
+const isScreenSharing = ref(false);
+
 let creator = false;
+let roomName;
 let rtcPeerConnection;
 let userStream;
+let screenStream;
 
 // Contains the stun server URL we will be using.
 const iceServers = {
@@ -71,17 +82,60 @@ const toggleCamera = () => {
   videoTrack.enabled = !videoTrack.enabled;
 };
 
+const toggleScreenShare = async () => {
+  if (isScreenSharing.value) {
+    stopScreenShare();
+  } else {
+    await startScreenShare();
+  }
+};
+
+const startScreenShare = async () => {
+  try {
+    screenStream = await navigator.mediaDevices.getDisplayMedia({ video: true });
+    const screenTrack = screenStream.getTracks()[0];
+
+    // Add the screen track to the RTCPeerConnection
+    const sender = rtcPeerConnection.getSenders().find((s) => s.track.kind === 'video');
+    sender.replaceTrack(screenTrack);
+
+    screenTrack.onended = () => {
+      stopScreenShare();
+    };
+
+    // Display the screen stream in the screenVideo element
+    screenVideo.value.srcObject = screenStream;
+    isScreenSharing.value = true;
+  } catch (error) {
+    console.error("Error sharing screen: ", error);
+  }
+};
+
+const stopScreenShare = () => {
+  const videoTrack = userStream.getVideoTracks()[0];
+
+  // Replace the screen track with the original video track
+  const sender = rtcPeerConnection.getSenders().find((s) => s.track.kind === 'video');
+  sender.replaceTrack(videoTrack);
+
+  // Clear the screenVideo element and revert to webcam stream
+  screenVideo.value.srcObject = null;
+  screenStream.getTracks().forEach((track) => track.stop());
+  isScreenSharing.value = false;
+};
+
 socket.on('created', () => {
   creator = true;
 
   navigator.mediaDevices
     .getUserMedia({
       audio: true,
-      video: { width: 1280, height: 720 },
+      video: true,
     })
     .then((stream) => {
       userStream = stream;
       divVideoChatLobby.value.style = 'display:none';
+      divVideoGroup.value.style = 'display:block';
       userVideo.value.srcObject = stream;
       userVideo.value.onloadedmetadata = function (e) {
         userVideo.value.play();
@@ -102,6 +156,7 @@ socket.on('joined', () => {
     .then((stream) => {
       userStream = stream;
       divVideoChatLobby.value.style = 'display:none';
+      divVideoGroup.value.style = 'display:block';
       userVideo.value.srcObject = stream;
       userVideo.value.onloadedmetadata = function (e) {
         userVideo.value.play();
@@ -165,12 +220,6 @@ socket.on('answer', (answer) => {
   rtcPeerConnection.setRemoteDescription(answer);
 });
 
-onMounted(() => {
-  divVideoChatLobby.value = document.getElementById('video-chat-lobby');
-  userVideo.value = document.getElementById('user-video');
-  peerVideo.value = document.getElementById('peer-video');
-  roomInput.value = document.getElementById('roomName');
-});
 </script>
 
 <style scoped>
@@ -190,6 +239,10 @@ h2 {
   max-width: 600px;
   background-color: #141414;
   margin: 30px auto;
+}
+
+#video-group {
+  display: none;
 }
 
 #chat-window {
@@ -238,5 +291,15 @@ button {
   font-size: 18px;
   padding: 12px 0;
   width: 100%;
+  cursor: pointer;
 }
+
+#toggleBtns {
+  margin: 0 auto;
+  display: flex;
+  width: 400px;
+  gap: 10px;
+  justify-content: center;
+}
+
 </style>
