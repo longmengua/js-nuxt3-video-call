@@ -27,6 +27,7 @@ function common_steps {
 
 # Function to perform deployment steps
 function deploy_steps {
+    PORT=80
     if [ $1 == "dev" ]; then
         NAME=web-dev
         ENV_FILE_NAME=.env.dev
@@ -65,9 +66,7 @@ function deploy_steps {
     # Step 4
     echo "===> Start deploying"
     docker rm -f $NAME \
-        && docker run -d -p $PORT:80 \
-        --network=app \
-        --name $NAME $NAME
+        && docker run -d -p $PORT:3000 --name $NAME $NAME
 
     # Step 5
     echo "===> Clean cache of container and volume"
