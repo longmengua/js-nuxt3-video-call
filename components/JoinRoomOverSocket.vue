@@ -1,6 +1,5 @@
 <template>
   <div>
-    <slot></slot>
     <div id="video-chat-lobby" ref="divVideoChatLobby">
       <h2 class="text">Video Chat Application</h2>
       <input id="roomName" type="text" placeholder="Room Name" ref="roomInput" />
@@ -11,11 +10,16 @@
         <button @click="toggleMic">Toggle Microphone</button>
         <button @click="toggleCamera">Toggle Camera</button>
         <button @click="toggleScreenShare">Toggle Screen Share</button>
+        <button @click="selectTool('pen')">Pen</button>
+        <button @click="selectTool('text')">Text</button>
+        <button @click="selectTool('shape')">Shape</button>
       </div>
+      <video id="screen-video" ref="screenVideo" autoplay playsinline style="width: 900px; height: 450px;border: 1px solid black;"></video>
       <div id="video-chat-room">
-        <video id="user-video" ref="userVideo" autoplay muted playsinline style="width: 320px; height: 240px;"></video>
-        <video id="peer-video" ref="peerVideo" autoplay playsinline style="width: 320px; height: 240px;"></video>
-        <video id="screen-video" ref="screenVideo" autoplay playsinline style="width: 320px; height: 240px;"></video>
+        <video id="user-video" ref="userVideo" autoplay muted playsinline style="width: 320px; height: 240px;border: 1px solid black;"></video>
+        <video id="peer-video" ref="peerVideo" autoplay playsinline style="width: 320px; height: 240px;border: 1px solid black;"></video>
+        <canvas id="annotationCanvas" ref="annotationCanvas" style="position: absolute; top: 0; left: 0;" 
+                @mousedown="startAnnotation" @mousemove="startAnnotation" @mouseup="endAnnotation"></canvas>
       </div>
     </div>
   </div>
@@ -35,6 +39,8 @@ const peerVideo = ref(null);
 const screenVideo = ref(null);
 const roomInput = ref(null);
 const isScreenSharing = ref(false);
+const annotationCanvas = ref(null);
+const selectedTool = ref('pen'); 
 
 let creator = false;
 let roomName;
@@ -48,6 +54,49 @@ const iceServers = {
     { urls: 'stun:stun.services.mozilla.com' },
     { urls: 'stun:stun.l.google.com:19302' },
   ],
+};
+
+const selectTool = (tool) => {
+  selectedTool.value = tool;
+};
+
+const initCanvas = () => {
+  if (!annotationCanvas) {
+    return
+  }
+
+  const canvas = annotationCanvas.value;
+  const ctx = canvas.getContext('2d');
+  ctx.lineWidth = 2;
+  ctx.strokeStyle = 'red';
+};
+
+const startAnnotation = (event) => {
+  if (!annotationCanvas) {
+    return
+  }
+
+  const canvas = annotationCanvas.value;
+  const ctx = canvas.getContext('2d');
+
+  if (selectedTool.value === 'pen') {
+    ctx.beginPath();
+    ctx.moveTo(event.offsetX, event.offsetY);
+  } else if (selectedTool.value === 'text') {
+    const text = prompt('Enter text:');
+    if (text) {
+      ctx.font = '14px Arial';
+      ctx.fillText(text, event.offsetX, event.offsetY);
+    }
+  } else if (selectedTool.value === 'shape') {
+    ctx.strokeRect(event.offsetX, event.offsetY, 50, 50);
+  }
+};
+
+const endAnnotation = () => {
+  const canvas = annotationCanvas.value;
+  const ctx = canvas.getContext('2d');
+  ctx.closePath();
 };
 
 const joinRoom = () => {
@@ -95,6 +144,12 @@ const startScreenShare = async () => {
     screenStream = await navigator.mediaDevices.getDisplayMedia({ video: true });
     const screenTrack = screenStream.getTracks()[0];
 
+    // Display the screen stream in the screenVideo element locally
+    screenVideo.value.srcObject = screenStream;
+    screenVideo.value.onloadedmetadata = function (e) {
+      screenVideo.value.play();
+    };
+
     // Add the screen track to the RTCPeerConnection
     const sender = rtcPeerConnection.getSenders().find((s) => s.track.kind === 'video');
     sender.replaceTrack(screenTrack);
@@ -103,8 +158,6 @@ const startScreenShare = async () => {
       stopScreenShare();
     };
 
-    // Display the screen stream in the screenVideo element
-    screenVideo.value.srcObject = screenStream;
     isScreenSharing.value = true;
   } catch (error) {
     console.error("Error sharing screen: ", error);
@@ -220,6 +273,10 @@ socket.on('answer', (answer) => {
   rtcPeerConnection.setRemoteDescription(answer);
 });
 
+onMounted(() => {
+  initCanvas();
+})
+
 </script>
 
 <style scoped>
@@ -300,6 +357,12 @@ button {
   width: 400px;
   gap: 10px;
   justify-content: center;
+}
+
+#video-chat-room {
+  flex-wrap: wrap;
+  display: flex;
+  gap: 10px;
 }
 
 </style>
