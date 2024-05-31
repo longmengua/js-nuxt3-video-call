@@ -7,23 +7,33 @@
     </div>
     <div id="video-group" ref="divVideoGroup">
       <div id="toggleBtns">
+        <button @click="toggleScreenShare">Toggle Screen Share</button>
+        <button @click="undo">Undo move in canvas</button>
         <button @click="toggleMic">Toggle Microphone</button>
         <button @click="toggleCamera">Toggle Camera</button>
-        <button @click="toggleScreenShare">Toggle Screen Share</button>
       </div>
-      <video id="screen-video" ref="screenVideo" autoplay playsinline style="width: 900px; height: 450px;border: 1px solid black;"></video>
+      <div id="video-shared-group">
+        <video id="screen-video" ref="screenVideo" autoplay playsinline style="width: 900px; height: 450px; border: 1px solid black;"></video>
+        <canvas
+          width="900"
+          height="450"
+          style="border: 1px solid black;"
+          ref="canvas"
+          @mousedown="onMouseDown"
+          @mousemove="onMouseMove"
+          @mouseup="onMouseUp"
+        ></canvas>
+      </div>
       <div id="video-chat-room">
-        <video id="user-video" ref="userVideo" autoplay muted playsinline style="width: 320px; height: 240px;border: 1px solid black;"></video>
-        <video id="peer-video" ref="peerVideo" autoplay playsinline style="width: 320px; height: 240px;border: 1px solid black;"></video>
-        <canvas id="annotationCanvas" ref="annotationCanvas" style="position: absolute; top: 0; left: 0;" 
-                @mousedown="startAnnotation" @mousemove="startAnnotation" @mouseup="endAnnotation"></canvas>
+        <video id="user-video" ref="userVideo" autoplay muted playsinline style="width: 320px; height: 240px; border: 1px solid black;"></video>
+        <video id="peer-video" ref="peerVideo" autoplay playsinline style="width: 320px; height: 240px; border: 1px solid black;"></video>
       </div>
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref } from 'vue';
+import { ref, onMounted } from 'vue';
 import { io } from 'socket.io-client';
 
 const config = useRuntimeConfig();
@@ -36,8 +46,12 @@ const peerVideo = ref(null);
 const screenVideo = ref(null);
 const roomInput = ref(null);
 const isScreenSharing = ref(false);
-const annotationCanvas = ref(null);
-const selectedTool = ref('pen'); 
+const drawingHistory = ref([]);
+const canvas = ref(null);
+
+let isMouseActive = false;
+let x1, x2, y1, y2 = 0;
+let currentStep = [];
 
 let creator = false;
 let roomName;
@@ -51,6 +65,68 @@ const iceServers = {
     { urls: 'stun:stun.services.mozilla.com' },
     { urls: 'stun:stun.l.google.com:19302' },
   ],
+};
+
+const onMouseDown = (e) => {
+  isMouseActive = true;
+  x1 = e.offsetX || e.touches[0].clientX - canvas.value.offsetLeft;
+  y1 = e.offsetY || e.touches[0].clientY - canvas.value.offsetTop;
+
+  const ctx = canvas.value.getContext('2d');
+
+  ctx.lineWidth = 5;
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+
+  currentStep = [{ type: 'beginPath', x: x1, y: y1 }];
+};
+
+const onMouseMove = (e) => {
+  if (!isMouseActive) return;
+
+  x2 = e.offsetX || e.touches[0].clientX - canvas.value.offsetLeft;
+  y2 = e.offsetY || e.touches[0].clientY - canvas.value.offsetTop;
+
+  const ctx = canvas.value.getContext('2d');
+
+  ctx.beginPath();
+  ctx.moveTo(x1, y1);
+  ctx.lineTo(x2, y2);
+  ctx.stroke();
+
+  currentStep.push({ type: 'lineTo', x: x2, y: y2 });
+
+  x1 = x2;
+  y1 = y2;
+};
+
+const onMouseUp = () => {
+  if (isMouseActive && currentStep.length > 0) {
+    drawingHistory.value.push(currentStep);
+    currentStep = [];
+  }
+  isMouseActive = false;
+};
+
+const undo = () => {
+  if (drawingHistory.value.length === 0) return;
+
+  const ctx = canvas.value.getContext('2d');
+
+  drawingHistory.value.pop();
+  ctx.clearRect(0, 0, canvas.value.width, canvas.value.height);
+  ctx.beginPath();
+
+  drawingHistory.value.forEach(step => {
+    step.forEach(action => {
+      if (action.type === 'beginPath') {
+        ctx.moveTo(action.x, action.y);
+      } else if (action.type === 'lineTo') {
+        ctx.lineTo(action.x, action.y);
+        ctx.stroke();
+      }
+    });
+  });
 };
 
 const joinRoom = () => {
@@ -70,7 +146,7 @@ const OnIceCandidateFunction = (event) => {
 
 const OnTrackFunction = (event) => {
   peerVideo.value.srcObject = event.streams[0];
-  peerVideo.value.onloadedmetadata = function (e) {
+  peerVideo.value.onloadedmetadata = function () {
     peerVideo.value.play();
   };
 };
@@ -100,7 +176,7 @@ const startScreenShare = async () => {
 
     // Display the screen stream in the screenVideo element locally
     screenVideo.value.srcObject = screenStream;
-    screenVideo.value.onloadedmetadata = function (e) {
+    screenVideo.value.onloadedmetadata = function () {
       screenVideo.value.play();
     };
 
@@ -144,7 +220,7 @@ socket.on('created', () => {
       divVideoChatLobby.value.style = 'display:none';
       divVideoGroup.value.style = 'display:block';
       userVideo.value.srcObject = stream;
-      userVideo.value.onloadedmetadata = function (e) {
+      userVideo.value.onloadedmetadata = function () {
         userVideo.value.play();
       };
     })
@@ -165,7 +241,7 @@ socket.on('joined', () => {
       divVideoChatLobby.value.style = 'display:none';
       divVideoGroup.value.style = 'display:block';
       userVideo.value.srcObject = stream;
-      userVideo.value.onloadedmetadata = function (e) {
+      userVideo.value.onloadedmetadata = function () {
         userVideo.value.play();
       };
       socket.emit('ready', roomName);
@@ -226,7 +302,6 @@ socket.on('offer', (offer) => {
 socket.on('answer', (answer) => {
   rtcPeerConnection.setRemoteDescription(answer);
 });
-
 </script>
 
 <style scoped>
@@ -314,5 +389,4 @@ button {
   display: flex;
   gap: 10px;
 }
-
 </style>
