@@ -10,9 +10,6 @@
         <button @click="toggleMic">Toggle Microphone</button>
         <button @click="toggleCamera">Toggle Camera</button>
         <button @click="toggleScreenShare">Toggle Screen Share</button>
-        <button @click="selectTool('pen')">Pen</button>
-        <button @click="selectTool('text')">Text</button>
-        <button @click="selectTool('shape')">Shape</button>
       </div>
       <video id="screen-video" ref="screenVideo" autoplay playsinline style="width: 900px; height: 450px;border: 1px solid black;"></video>
       <div id="video-chat-room">
@@ -54,49 +51,6 @@ const iceServers = {
     { urls: 'stun:stun.services.mozilla.com' },
     { urls: 'stun:stun.l.google.com:19302' },
   ],
-};
-
-const selectTool = (tool) => {
-  selectedTool.value = tool;
-};
-
-const initCanvas = () => {
-  if (!annotationCanvas) {
-    return
-  }
-
-  const canvas = annotationCanvas.value;
-  const ctx = canvas.getContext('2d');
-  ctx.lineWidth = 2;
-  ctx.strokeStyle = 'red';
-};
-
-const startAnnotation = (event) => {
-  if (!annotationCanvas) {
-    return
-  }
-
-  const canvas = annotationCanvas.value;
-  const ctx = canvas.getContext('2d');
-
-  if (selectedTool.value === 'pen') {
-    ctx.beginPath();
-    ctx.moveTo(event.offsetX, event.offsetY);
-  } else if (selectedTool.value === 'text') {
-    const text = prompt('Enter text:');
-    if (text) {
-      ctx.font = '14px Arial';
-      ctx.fillText(text, event.offsetX, event.offsetY);
-    }
-  } else if (selectedTool.value === 'shape') {
-    ctx.strokeRect(event.offsetX, event.offsetY, 50, 50);
-  }
-};
-
-const endAnnotation = () => {
-  const canvas = annotationCanvas.value;
-  const ctx = canvas.getContext('2d');
-  ctx.closePath();
 };
 
 const joinRoom = () => {
@@ -272,10 +226,6 @@ socket.on('offer', (offer) => {
 socket.on('answer', (answer) => {
   rtcPeerConnection.setRemoteDescription(answer);
 });
-
-onMounted(() => {
-  initCanvas();
-})
 
 </script>
 
