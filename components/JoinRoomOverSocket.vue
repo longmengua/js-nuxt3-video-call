@@ -12,12 +12,12 @@
         <button @click="toggleMic">Toggle Microphone</button>
         <button @click="toggleCamera">Toggle Camera</button>
       </div>
-      <div id="video-shared-group">
+      <div id="video-shared-group" style="position: relative;">
         <video id="screen-video" ref="screenVideo" autoplay playsinline style="width: 900px; height: 450px; border: 1px solid black;"></video>
         <canvas
           width="900"
           height="450"
-          style="border: 1px solid black;"
+          style="border: 1px solid black;position: absolute;top: 0;left: 0;"
           ref="canvas"
           @mousedown="onMouseDown"
           @mousemove="onMouseMove"
@@ -92,6 +92,8 @@ const onMouseMove = (e) => {
   ctx.beginPath();
   ctx.moveTo(x1, y1);
   ctx.lineTo(x2, y2);
+  ctx.lineWidth = 2;
+  ctx.strokeStyle = "yellow";
   ctx.stroke();
 
   currentStep.push({ type: 'lineTo', x: x2, y: y2 });
