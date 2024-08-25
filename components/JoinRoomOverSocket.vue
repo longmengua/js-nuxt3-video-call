@@ -10,47 +10,47 @@
       />
       <button class="join-btn" @click="joinRoom">Join</button>
     </div>
-    <div class="video-group" :style="{display: !uiState.isOpenRoom ? 'none' : 'block'}">
-      <div class="toggle-btns">
-        <button @click="toggleScreenShare">Toggle Screen Share</button>
-        <button @click="undo">Undo move in canvas</button>
-        <button @click="toggleMic">Toggle Microphone</button>
-        <button @click="toggleCamera">Toggle Camera</button>
-      </div>
-      <div class="video-shared-group" style="position: relative;">
-        <video
-          class="screen-video"
-          ref="screenVideoRef"
-          autoplay
-          playsinline
-          style="width: 900px; height: 450px; border: 1px solid black;"
-        ></video>
-        <canvas
-          width="900"
-          height="450"
-          style="border: 1px solid black;position: absolute;top: 0;left: 0;"
-          ref="canvasRef"
-          @mousedown="onMouseDown"
-          @mousemove="onMouseMove"
-          @mouseup="onMouseUp"
-        ></canvas>
-      </div>
-      <div class="video-chat-room">
-        <video
-          class="user-video"
-          ref="userVideoRef"
-          autoplay
-          muted
-          playsinline
-          style="width: 320px; height: 240px; border: 1px solid black;"
-        ></video>
-        <video
-          class="peer-video"
-          ref="peerVideoRef"
-          autoplay
-          playsinline
-          style="width: 320px; height: 240px; border: 1px solid black;"
-        ></video>
+    <div :style="{display: !uiState.isOpenRoom ? 'none' : 'block'}">
+      <div class="video-group">
+        <div class="video-shared-group" :style="{ position: 'relative', width: `${videoWidth}px`, height: `${videoHeight}px` }">
+          <video
+            class="screen-video"
+            ref="screenVideoRef"
+            autoplay
+            playsinline
+            :style="{ width: `${uiState.videoSharing.width}px`, height: `${uiState.videoSharing.height}px`, border: '1px solid black' }"
+          ></video>
+          <canvas
+            :style="{ width: `${uiState.videoSharing.width}px`, height: `${uiState.videoSharing.height}px`, border: '1px solid black', position: 'absolute', top: '0', left: '0' }"
+            ref="canvasRef"
+            @mousedown="onMouseDown"
+            @mousemove="onMouseMove"
+            @mouseup="onMouseUp"
+          ></canvas>
+        </div>
+        <div class="video-chat-room">
+          <video
+            class="user-video"
+            ref="userVideoRef"
+            autoplay
+            muted
+            playsinline
+            :style="{ width: '320px', height: '240px', border: '1px solid black' }"
+          ></video>
+          <video
+            class="peer-video"
+            ref="peerVideoRef"
+            autoplay
+            playsinline
+            :style="{ width: '320px', height: '240px', border: '1px solid black' }"
+          ></video>
+        </div>
+        <div class="toggle-btns">
+          <button @click="toggleScreenShare">Toggle Screen Share</button>
+          <button @click="undo">Undo move in canvas</button>
+          <button @click="toggleMic">Toggle Microphone</button>
+          <button @click="toggleCamera">Toggle Camera</button>
+        </div>
       </div>
     </div>
   </div>
@@ -73,6 +73,10 @@ const uiState = ref({
   isOpenRoom: false,
   isScreenSharing: false,
   drawingHistory: [],
+  videoSharing: {
+    width: 650,
+    height: 450,
+  }
 });
 
 let isMouseActive = false;
@@ -348,13 +352,13 @@ socket.on('answer', (answer) => {
 
 .video-group {
   display: flex;
-  flex-direction: column;
+  justify-content: center;
   align-items: center;
-  margin-top: 20px;
+  flex-direction: column;
 }
 
 .toggle-btns {
-  margin-bottom: 10px;
+  margin: 20px 0;
 }
 
 .video-shared-group {
@@ -363,7 +367,5 @@ socket.on('answer', (answer) => {
 
 .video-chat-room {
   display: flex;
-  justify-content: space-between;
-  margin-top: 20px;
 }
 </style>
