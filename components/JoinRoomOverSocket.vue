@@ -96,8 +96,13 @@ const state = {
 // Contains the stun server URL we will be using.
 const iceServers = {
   iceServers: [
-    { urls: 'stun:stun.services.mozilla.com' },
-    { urls: 'stun:stun.l.google.com:19302' },
+    {
+      urls: 'turn:localhost:3478',
+      username: 'user',
+      credential: '1234qwer'
+    },
+    // { urls: 'stun:stun.services.mozilla.com' },
+    // { urls: 'stun:stun.l.google.com:19302' },
   ],
 };
 

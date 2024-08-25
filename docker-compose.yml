@@ -1,0 +1,23 @@
+version: '3'
+
+services:
+  coturn:
+    image: instrumentisto/coturn
+    container_name: coturn
+    restart: always
+    ports:
+      - "3478:3478"       # STUN/TURN UDP port
+      - "3478:3478/tcp"   # STUN/TURN TCP port
+      - "5349:5349"       # TURN over TLS port
+      - "5349:5349/tcp"   # TURN over TLS TCP port
+    environment:
+      - TURN_SERVER_NAME=49.216.192.241  # 使用您的 Coturn 伺服器 IP 地址
+      - TURN_SERVER_SECRET=huffman
+      - TURN_SERVER_USER=user
+      - TURN_SERVER_PASS=1234qwer
+      - TURN_PORT=3478
+      - TURN_SECRET=huffman
+      - TURN_REALM=49.216.192.241  # 使用您的 Coturn 伺服器 IP 地址
+      - TURN_AUTH_METHOD=long-term
+    volumes:
+      - ./coturn.conf:/etc/turnserver.conf
