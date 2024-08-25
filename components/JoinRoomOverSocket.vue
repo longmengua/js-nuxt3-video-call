@@ -21,7 +21,9 @@
             :style="{ width: `${uiState.videoSharing.width}px`, height: `${uiState.videoSharing.height}px`, border: '1px solid black' }"
           ></video>
           <canvas
-            :style="{ width: `${uiState.videoSharing.width}px`, height: `${uiState.videoSharing.height}px`, border: '1px solid black', position: 'absolute', top: '0', left: '0' }"
+            :width="`${uiState.videoSharing.width}px`"
+            :height="`${uiState.videoSharing.height}px`"
+            :style="{ border: '1px solid black', position: 'absolute', top: '0', left: '0' }"
             ref="canvasRef"
             @mousedown="onMouseDown"
             @mousemove="onMouseMove"
@@ -91,12 +93,6 @@ const state = {
   screenStream: null,
 }
 
-let currentStep = [];
-let creator = false;
-let rtcPeerConnection;
-let userStream;
-let screenStream;
-
 // Contains the stun server URL we will be using.
 const iceServers = {
   iceServers: [
@@ -105,30 +101,34 @@ const iceServers = {
   ],
 };
 
-const initCanvas = () => {
+const getCanvasContext = () => {
   const ctx = canvasRef.value.getContext('2d');
   ctx.lineWidth = 2;
   ctx.lineCap = 'round';
   ctx.lineJoin = 'round';
   ctx.strokeStyle = "red";
+  return ctx
 }
 
 const onMouseDown = (e) => {
   state.isMouseActive = true;
-  state.x1 = e.offsetX || e.touches[0].clientX - canvasRef.value.offsetLeft;
-  state.y1 = e.offsetY || e.touches[0].clientY - canvasRef.value.offsetTop;
+
+  // Calculate canvas position and size
+  const rect = canvasRef.value.getBoundingClientRect();
+  state.x1 = e.clientX - rect.left;
+  state.y1 = e.clientY - rect.top;
+
   state.currentStep = [{ type: 'beginPath', x: state.x1, y: state.y1 }];
-  initCanvas()
 };
 
 const onMouseMove = (e) => {
   if (!state.isMouseActive) return;
 
-  state.x2 = e.offsetX || e.touches[0].clientX - canvasRef.value.offsetLeft;
-  state.y2 = e.offsetY || e.touches[0].clientY - canvasRef.value.offsetTop;
+  const rect = canvasRef.value.getBoundingClientRect();
+  state.x2 = e.clientX - rect.left;
+  state.y2 = e.clientY - rect.top;
 
-  const ctx = canvasRef.value.getContext('2d');
-
+  const ctx = getCanvasContext();
   ctx.beginPath();
   ctx.moveTo(state.x1, state.y1);
   ctx.lineTo(state.x2, state.y2);
@@ -190,12 +190,12 @@ const OnTrackFunction = (event) => {
 };
 
 const toggleMic = () => {
-  const audioTrack = userStream.getAudioTracks()[0];
+  const audioTrack = state.userStream.getAudioTracks()[0];
   audioTrack.enabled = !audioTrack.enabled;
 };
 
 const toggleCamera = () => {
-  const videoTrack = userStream.getVideoTracks()[0];
+  const videoTrack = state.userStream.getVideoTracks()[0];
   videoTrack.enabled = !videoTrack.enabled;
 };
 
@@ -209,17 +209,17 @@ const toggleScreenShare = async () => {
 
 const startScreenShare = async () => {
   try {
-    screenStream = await navigator.mediaDevices.getDisplayMedia({ video: true });
-    const screenTrack = screenStream.getTracks()[0];
+    state.screenStream = await navigator.mediaDevices.getDisplayMedia({ video: true });
+    const screenTrack = state.screenStream.getTracks()[0];
 
     // Display the screen stream in the screenVideo element locally
-    screenVideoRef.value.srcObject = screenStream;
+    screenVideoRef.value.srcObject = state.screenStream;
     screenVideoRef.value.onloadedmetadata = function () {
       screenVideoRef.value.play();
     };
 
     // Add the screen track to the RTCPeerConnection
-    const sender = rtcPeerConnection.getSenders().find((s) => s.track.kind === 'video');
+    const sender = state.rtcPeerConnection.getSenders().find((s) => s.track.kind === 'video');
     sender.replaceTrack(screenTrack);
 
     screenTrack.onended = () => {
@@ -233,22 +233,22 @@ const startScreenShare = async () => {
 };
 
 const stopScreenShare = () => {
-  const videoTrack = userStream.getVideoTracks()[0];
+  const videoTrack = state.userStream.getVideoTracks()[0];
 
   // Replace the screen track with the original video track
-  const sender = rtcPeerConnection.getSenders().find((s) => s.track.kind === 'video');
+  const sender = state.rtcPeerConnection.getSenders().find((s) => s.track.kind === 'video');
   sender.replaceTrack(videoTrack);
 
   // Clear the screenVideo element and revert to webcam stream
   screenVideoRef.value.srcObject = null;
-  screenStream.getTracks().forEach((track) => track.stop());
+  state.screenStream.getTracks().forEach((track) => track.stop());
   uiState.value.isScreenSharing = false;
 };
 
 const setupStream = async () => {
   const mediaStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: true })
   uiState.value.isOpenRoom = true;
-  userStream = mediaStream;
+  state.userStream = mediaStream;
   userVideoRef.value.srcObject = mediaStream;
   userVideoRef.value.onloadedmetadata = function () {
     userVideoRef.value.play();
@@ -261,12 +261,12 @@ const setupStream = async () => {
 }
 
 socket.on('created', async () => {
-  creator = true;
+  state.creator = true;
   await setupStream()
 });
 
 socket.on('joined', async () => {
-  creator = false;
+  state.creator = false;
   await setupStream()
   socket.emit('ready', roomName.value);
 });
@@ -276,16 +276,16 @@ socket.on('full', () => {
 });
 
 socket.on('ready', () => {
-  if (creator) {
-    rtcPeerConnection = new RTCPeerConnection(iceServers);
-    rtcPeerConnection.onicecandidate = OnIceCandidateFunction;
-    rtcPeerConnection.ontrack = OnTrackFunction;
-    rtcPeerConnection.addTrack(userStream.getTracks()[0], userStream);
-    rtcPeerConnection.addTrack(userStream.getTracks()[1], userStream);
-    rtcPeerConnection
+  if (state.creator) {
+    state.rtcPeerConnection = new RTCPeerConnection(iceServers);
+    state.rtcPeerConnection.onicecandidate = OnIceCandidateFunction;
+    state.rtcPeerConnection.ontrack = OnTrackFunction;
+    state.rtcPeerConnection.addTrack(state.userStream.getTracks()[0], state.userStream);
+    state.rtcPeerConnection.addTrack(state.userStream.getTracks()[1], state.userStream);
+    state.rtcPeerConnection
       .createOffer()
       .then((offer) => {
-        rtcPeerConnection.setLocalDescription(offer);
+        state.rtcPeerConnection.setLocalDescription(offer);
         socket.emit('offer', offer, roomName.value);
       })
       .catch((error) => {
@@ -295,20 +295,20 @@ socket.on('ready', () => {
 });
 
 socket.on('candidate', (icecandidate) => {
-  rtcPeerConnection.addIceCandidate(icecandidate);
+  state.rtcPeerConnection.addIceCandidate(icecandidate);
 });
 
 socket.on('offer', (offer) => {
-  rtcPeerConnection = new RTCPeerConnection(iceServers);
-  rtcPeerConnection.onicecandidate = OnIceCandidateFunction;
-  rtcPeerConnection.ontrack = OnTrackFunction;
-  rtcPeerConnection.addTrack(userStream.getTracks()[0], userStream);
-  rtcPeerConnection.addTrack(userStream.getTracks()[1], userStream);
-  rtcPeerConnection.setRemoteDescription(new RTCSessionDescription(offer));
-  rtcPeerConnection
+  state.rtcPeerConnection = new RTCPeerConnection(iceServers);
+  state.rtcPeerConnection.onicecandidate = OnIceCandidateFunction;
+  state.rtcPeerConnection.ontrack = OnTrackFunction;
+  state.rtcPeerConnection.addTrack(state.userStream.getTracks()[0], state.userStream);
+  state.rtcPeerConnection.addTrack(state.userStream.getTracks()[1], state.userStream);
+  state.rtcPeerConnection.setRemoteDescription(new RTCSessionDescription(offer));
+  state.rtcPeerConnection
     .createAnswer()
     .then((answer) => {
-      rtcPeerConnection.setLocalDescription(answer);
+      state.rtcPeerConnection.setLocalDescription(answer);
       socket.emit('answer', answer, roomName.value);
     })
     .catch((error) => {
@@ -317,7 +317,7 @@ socket.on('offer', (offer) => {
 });
 
 socket.on('answer', (answer) => {
-  rtcPeerConnection.setRemoteDescription(new RTCSessionDescription(answer));
+  state.rtcPeerConnection.setRemoteDescription(new RTCSessionDescription(answer));
 });
 
 </script>
