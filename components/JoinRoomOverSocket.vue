@@ -1,6 +1,6 @@
 <template>
   <div>
-    <div class="video-chat-lobby" :style="{display: isOpenRoom ? 'none' : 'block'}">
+    <div class="video-chat-lobby" :style="{display: uiState.isOpenRoom ? 'none' : 'block'}">
       <h2 class="text">Video Chat Application</h2>
       <input
         class="room-name"
@@ -10,7 +10,7 @@
       />
       <button class="join-btn" @click="joinRoom">Join</button>
     </div>
-    <div class="video-group" :style="{display: !isOpenRoom ? 'none' : 'block'}">
+    <div class="video-group" :style="{display: !uiState.isOpenRoom ? 'none' : 'block'}">
       <div class="toggle-btns">
         <button @click="toggleScreenShare">Toggle Screen Share</button>
         <button @click="undo">Undo move in canvas</button>
@@ -20,7 +20,7 @@
       <div class="video-shared-group" style="position: relative;">
         <video
           class="screen-video"
-          ref="screenVideo"
+          ref="screenVideoRef"
           autoplay
           playsinline
           style="width: 900px; height: 450px; border: 1px solid black;"
@@ -29,7 +29,7 @@
           width="900"
           height="450"
           style="border: 1px solid black;position: absolute;top: 0;left: 0;"
-          ref="canvas"
+          ref="canvasRef"
           @mousedown="onMouseDown"
           @mousemove="onMouseMove"
           @mouseup="onMouseUp"
@@ -38,7 +38,7 @@
       <div class="video-chat-room">
         <video
           class="user-video"
-          ref="userVideo"
+          ref="userVideoRef"
           autoplay
           muted
           playsinline
@@ -46,7 +46,7 @@
         ></video>
         <video
           class="peer-video"
-          ref="peerVideo"
+          ref="peerVideoRef"
           autoplay
           playsinline
           style="width: 320px; height: 240px; border: 1px solid black;"
@@ -57,25 +57,27 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue';
+import { ref } from 'vue';
 import { io } from 'socket.io-client';
 
 const config = useRuntimeConfig();
-const socketUrl = config.public.SOCKET_URL;
-const socket = io.connect(socketUrl);
-const userVideo = ref(null);
-const peerVideo = ref(null);
-const screenVideo = ref(null);
+const socket = io.connect(config.public.SOCKET_URL);
+
+const userVideoRef = ref(null);
+const peerVideoRef = ref(null);
+const screenVideoRef = ref(null);
+const canvasRef = ref(null);
 const roomName = ref('');
-const isScreenSharing = ref(false);
-const drawingHistory = ref([]);
-const canvas = ref(null);
-const isOpenRoom = ref(false);
+
+const uiState = ref({
+  isOpenRoom: false,
+  isScreenSharing: false,
+  drawingHistory: [],
+});
 
 let isMouseActive = false;
 let x1, x2, y1, y2 = 0;
 let currentStep = [];
-
 let creator = false;
 let rtcPeerConnection;
 let userStream;
@@ -91,10 +93,10 @@ const iceServers = {
 
 const onMouseDown = (e) => {
   isMouseActive = true;
-  x1 = e.offsetX || e.touches[0].clientX - canvas.value.offsetLeft;
-  y1 = e.offsetY || e.touches[0].clientY - canvas.value.offsetTop;
+  x1 = e.offsetX || e.touches[0].clientX - canvasRef.value.offsetLeft;
+  y1 = e.offsetY || e.touches[0].clientY - canvasRef.value.offsetTop;
 
-  const ctx = canvas.value.getContext('2d');
+  const ctx = canvasRef.value.getContext('2d');
 
   ctx.lineWidth = 5;
   ctx.lineCap = 'round';
@@ -106,10 +108,10 @@ const onMouseDown = (e) => {
 const onMouseMove = (e) => {
   if (!isMouseActive) return;
 
-  x2 = e.offsetX || e.touches[0].clientX - canvas.value.offsetLeft;
-  y2 = e.offsetY || e.touches[0].clientY - canvas.value.offsetTop;
+  x2 = e.offsetX || e.touches[0].clientX - canvasRef.value.offsetLeft;
+  y2 = e.offsetY || e.touches[0].clientY - canvasRef.value.offsetTop;
 
-  const ctx = canvas.value.getContext('2d');
+  const ctx = canvasRef.value.getContext('2d');
 
   ctx.beginPath();
   ctx.moveTo(x1, y1);
@@ -126,22 +128,22 @@ const onMouseMove = (e) => {
 
 const onMouseUp = () => {
   if (isMouseActive && currentStep.length > 0) {
-    drawingHistory.value.push(currentStep);
+    uiState.value.drawingHistory.push(currentStep);
     currentStep = [];
   }
   isMouseActive = false;
 };
 
 const undo = () => {
-  if (drawingHistory.value.length === 0) return;
+  if (uiState.value.drawingHistory.length === 0) return;
 
-  const ctx = canvas.value.getContext('2d');
+  const ctx = canvasRef.value.getContext('2d');
 
-  drawingHistory.value.pop();
-  ctx.clearRect(0, 0, canvas.value.width, canvas.value.height);
+  uiState.value.drawingHistory.pop();
+  ctx.clearRect(0, 0, canvasRef.value.width, canvasRef.value.height);
   ctx.beginPath();
 
-  drawingHistory.value.forEach(step => {
+  uiState.value.drawingHistory.forEach(step => {
     step.forEach(action => {
       if (action.type === 'beginPath') {
         ctx.moveTo(action.x, action.y);
@@ -168,9 +170,9 @@ const OnIceCandidateFunction = (event) => {
 };
 
 const OnTrackFunction = (event) => {
-  peerVideo.value.srcObject = event.streams[0];
-  peerVideo.value.onloadedmetadata = function () {
-    peerVideo.value.play();
+  peerVideoRef.value.srcObject = event.streams[0];
+  peerVideoRef.value.onloadedmetadata = function () {
+    peerVideoRef.value.play();
   };
 };
 
@@ -185,7 +187,7 @@ const toggleCamera = () => {
 };
 
 const toggleScreenShare = async () => {
-  if (isScreenSharing.value) {
+  if (uiState.value.isScreenSharing) {
     stopScreenShare();
   } else {
     await startScreenShare();
@@ -198,9 +200,9 @@ const startScreenShare = async () => {
     const screenTrack = screenStream.getTracks()[0];
 
     // Display the screen stream in the screenVideo element locally
-    screenVideo.value.srcObject = screenStream;
-    screenVideo.value.onloadedmetadata = function () {
-      screenVideo.value.play();
+    screenVideoRef.value.srcObject = screenStream;
+    screenVideoRef.value.onloadedmetadata = function () {
+      screenVideoRef.value.play();
     };
 
     // Add the screen track to the RTCPeerConnection
@@ -211,7 +213,7 @@ const startScreenShare = async () => {
       stopScreenShare();
     };
 
-    isScreenSharing.value = true;
+    uiState.value.isScreenSharing = true;
   } catch (error) {
     console.error("Error sharing screen: ", error);
   }
@@ -225,9 +227,9 @@ const stopScreenShare = () => {
   sender.replaceTrack(videoTrack);
 
   // Clear the screenVideo element and revert to webcam stream
-  screenVideo.value.srcObject = null;
+  screenVideoRef.value.srcObject = null;
   screenStream.getTracks().forEach((track) => track.stop());
-  isScreenSharing.value = false;
+  uiState.value.isScreenSharing = false;
 };
 
 socket.on('created', () => {
@@ -239,11 +241,11 @@ socket.on('created', () => {
       video: true,
     })
     .then((stream) => {
-      isOpenRoom.value = true;
+      uiState.value.isOpenRoom = true;
       userStream = stream;
-      userVideo.value.srcObject = stream;
-      userVideo.value.onloadedmetadata = function () {
-        userVideo.value.play();
+      userVideoRef.value.srcObject = stream;
+      userVideoRef.value.onloadedmetadata = function () {
+        userVideoRef.value.play();
       };
     })
     .catch((err) => {
@@ -259,11 +261,11 @@ socket.on('joined', () => {
       video: true,
     })
     .then((stream) => {
-      isOpenRoom.value = true;
+      uiState.value.isOpenRoom = true;
       userStream = stream;
-      userVideo.value.srcObject = stream;
-      userVideo.value.onloadedmetadata = function () {
-        userVideo.value.play();
+      userVideoRef.value.srcObject = stream;
+      userVideoRef.value.onloadedmetadata = function () {
+        userVideoRef.value.play();
       };
       socket.emit('ready', roomName.value);
     })
