@@ -1,4 +1,4 @@
-# js-webRTC
+# js-video-call
 
 ## docker build
 
