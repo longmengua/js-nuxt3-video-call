@@ -79,8 +79,18 @@ const uiState = ref({
   }
 });
 
-let isMouseActive = false;
-let x1, x2, y1, y2 = 0;
+const state = {
+  isMouseActive: false,
+  x1: 0,
+  x2: 0,
+  y1: 0,
+  y2: 0,
+  currentStep: [],
+  rtcPeerConnection: null,
+  userStream: null,
+  screenStream: null,
+}
+
 let currentStep = [];
 let creator = false;
 let rtcPeerConnection;
@@ -95,55 +105,54 @@ const iceServers = {
   ],
 };
 
-const onMouseDown = (e) => {
-  isMouseActive = true;
-  x1 = e.offsetX || e.touches[0].clientX - canvasRef.value.offsetLeft;
-  y1 = e.offsetY || e.touches[0].clientY - canvasRef.value.offsetTop;
-
+const initCanvas = () => {
   const ctx = canvasRef.value.getContext('2d');
-
-  ctx.lineWidth = 5;
+  ctx.lineWidth = 2;
   ctx.lineCap = 'round';
   ctx.lineJoin = 'round';
+  ctx.strokeStyle = "red";
+}
 
-  currentStep = [{ type: 'beginPath', x: x1, y: y1 }];
+const onMouseDown = (e) => {
+  state.isMouseActive = true;
+  state.x1 = e.offsetX || e.touches[0].clientX - canvasRef.value.offsetLeft;
+  state.y1 = e.offsetY || e.touches[0].clientY - canvasRef.value.offsetTop;
+  state.currentStep = [{ type: 'beginPath', x: state.x1, y: state.y1 }];
+  initCanvas()
 };
 
 const onMouseMove = (e) => {
-  if (!isMouseActive) return;
+  if (!state.isMouseActive) return;
 
-  x2 = e.offsetX || e.touches[0].clientX - canvasRef.value.offsetLeft;
-  y2 = e.offsetY || e.touches[0].clientY - canvasRef.value.offsetTop;
+  state.x2 = e.offsetX || e.touches[0].clientX - canvasRef.value.offsetLeft;
+  state.y2 = e.offsetY || e.touches[0].clientY - canvasRef.value.offsetTop;
 
   const ctx = canvasRef.value.getContext('2d');
 
   ctx.beginPath();
-  ctx.moveTo(x1, y1);
-  ctx.lineTo(x2, y2);
-  ctx.lineWidth = 2;
-  ctx.strokeStyle = "yellow";
+  ctx.moveTo(state.x1, state.y1);
+  ctx.lineTo(state.x2, state.y2);
   ctx.stroke();
 
-  currentStep.push({ type: 'lineTo', x: x2, y: y2 });
-
-  x1 = x2;
-  y1 = y2;
+  state.currentStep.push({ type: 'lineTo', x: state.x2, y: state.y2 });
+  state.x1 = state.x2;
+  state.y1 = state.y2;
 };
 
 const onMouseUp = () => {
-  if (isMouseActive && currentStep.length > 0) {
-    uiState.value.drawingHistory.push(currentStep);
-    currentStep = [];
+  if (state.isMouseActive && state.currentStep.length > 0) {
+    uiState.value.drawingHistory.push(state.currentStep);
+    state.currentStep = [];
   }
-  isMouseActive = false;
+  state.isMouseActive = false;
 };
 
 const undo = () => {
   if (uiState.value.drawingHistory.length === 0) return;
 
-  const ctx = canvasRef.value.getContext('2d');
-
   uiState.value.drawingHistory.pop();
+
+  const ctx = canvasRef.value.getContext('2d');
   ctx.clearRect(0, 0, canvasRef.value.width, canvasRef.value.height);
   ctx.beginPath();
 
@@ -236,46 +245,25 @@ const stopScreenShare = () => {
   uiState.value.isScreenSharing = false;
 };
 
-socket.on('created', () => {
-  creator = true;
+const setupStream = async () => {
+  const mediaStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: true })
+  uiState.value.isOpenRoom = true;
+  userStream = mediaStream;
+  userVideoRef.value.srcObject = mediaStream;
+  userVideoRef.value.onloadedmetadata = function () {
+    userVideoRef.value.play();
+  };
+}
 
-  navigator.mediaDevices
-    .getUserMedia({
-      audio: true,
-      video: true,
-    })
-    .then((stream) => {
-      uiState.value.isOpenRoom = true;
-      userStream = stream;
-      userVideoRef.value.srcObject = stream;
-      userVideoRef.value.onloadedmetadata = function () {
-        userVideoRef.value.play();
-      };
-    })
-    .catch((err) => {
-      alert("Couldn't Access User Media");
-    });
+socket.on('created', async () => {
+  creator = true;
+  await setupStream()
 });
 
-socket.on('joined', () => {
+socket.on('joined', async () => {
   creator = false;
-  navigator.mediaDevices
-    .getUserMedia({
-      audio: true,
-      video: true,
-    })
-    .then((stream) => {
-      uiState.value.isOpenRoom = true;
-      userStream = stream;
-      userVideoRef.value.srcObject = stream;
-      userVideoRef.value.onloadedmetadata = function () {
-        userVideoRef.value.play();
-      };
-      socket.emit('ready', roomName.value);
-    })
-    .catch((err) => {
-      alert("Couldn't Access User Media");
-    });
+  await setupStream()
+  socket.emit('ready', roomName.value);
 });
 
 socket.on('full', () => {
