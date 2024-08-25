@@ -1,19 +1,19 @@
 <template>
   <div>
-    <div id="video-chat-lobby" ref="divVideoChatLobby">
+    <div class="video-chat-lobby" ref="divVideoChatLobby">
       <h2 class="text">Video Chat Application</h2>
-      <input id="roomName" type="text" placeholder="Room Name" ref="roomInput" />
-      <button id="join" @click="joinRoom">Join</button>
+      <input class="room-name" type="text" placeholder="Room Name" ref="roomInput" />
+      <button class="join-btn" @click="joinRoom">Join</button>
     </div>
-    <div id="video-group" ref="divVideoGroup">
-      <div id="toggleBtns">
+    <div class="video-group" ref="divVideoGroup">
+      <div class="toggle-btns">
         <button @click="toggleScreenShare">Toggle Screen Share</button>
         <button @click="undo">Undo move in canvas</button>
         <button @click="toggleMic">Toggle Microphone</button>
         <button @click="toggleCamera">Toggle Camera</button>
       </div>
-      <div id="video-shared-group" style="position: relative;">
-        <video id="screen-video" ref="screenVideo" autoplay playsinline style="width: 900px; height: 450px; border: 1px solid black;"></video>
+      <div class="video-shared-group" style="position: relative;">
+        <video class="screen-video" ref="screenVideo" autoplay playsinline style="width: 900px; height: 450px; border: 1px solid black;"></video>
         <canvas
           width="900"
           height="450"
@@ -24,9 +24,9 @@
           @mouseup="onMouseUp"
         ></canvas>
       </div>
-      <div id="video-chat-room">
-        <video id="user-video" ref="userVideo" autoplay muted playsinline style="width: 320px; height: 240px; border: 1px solid black;"></video>
-        <video id="peer-video" ref="peerVideo" autoplay playsinline style="width: 320px; height: 240px; border: 1px solid black;"></video>
+      <div class="video-chat-room">
+        <video class="user-video" ref="userVideo" autoplay muted playsinline style="width: 320px; height: 240px; border: 1px solid black;"></video>
+        <video class="peer-video" ref="peerVideo" autoplay playsinline style="width: 320px; height: 240px; border: 1px solid black;"></video>
       </div>
     </div>
   </div>
@@ -282,113 +282,72 @@ socket.on('candidate', (candidate) => {
 });
 
 socket.on('offer', (offer) => {
-  if (!creator) {
-    rtcPeerConnection = new RTCPeerConnection(iceServers);
-    rtcPeerConnection.onicecandidate = OnIceCandidateFunction;
-    rtcPeerConnection.ontrack = OnTrackFunction;
-    rtcPeerConnection.addTrack(userStream.getTracks()[0], userStream);
-    rtcPeerConnection.addTrack(userStream.getTracks()[1], userStream);
-    rtcPeerConnection.setRemoteDescription(offer);
-    rtcPeerConnection
-      .createAnswer()
-      .then((answer) => {
-        rtcPeerConnection.setLocalDescription(answer);
-        socket.emit('answer', answer, roomName);
-      })
-      .catch((error) => {
-        console.log(error);
-      });
-  }
+  rtcPeerConnection = new RTCPeerConnection(iceServers);
+  rtcPeerConnection.onicecandidate = OnIceCandidateFunction;
+  rtcPeerConnection.ontrack = OnTrackFunction;
+  rtcPeerConnection.addTrack(userStream.getTracks()[0], userStream);
+  rtcPeerConnection.addTrack(userStream.getTracks()[1], userStream);
+  rtcPeerConnection.setRemoteDescription(new RTCSessionDescription(offer));
+  rtcPeerConnection
+    .createAnswer()
+    .then((answer) => {
+      rtcPeerConnection.setLocalDescription(answer);
+      socket.emit('answer', answer, roomName);
+    })
+    .catch((error) => {
+      console.log(error);
+    });
 });
 
 socket.on('answer', (answer) => {
-  rtcPeerConnection.setRemoteDescription(answer);
+  rtcPeerConnection.setRemoteDescription(new RTCSessionDescription(answer));
+});
+
+onMounted(() => {
+  divVideoChatLobby.value.style = 'display:block';
+  divVideoGroup.value.style = 'display:none';
 });
 </script>
 
 <style scoped>
-body {
-  background-color: black;
-  font-family: 'Helvetica';
-}
-
-h2 {
-  font-size: 18px;
-  padding: 10px 20px;
-  color: #ffffff;
-}
-
-#video-chat-lobby {
+.video-chat-lobby {
   text-align: center;
-  max-width: 600px;
-  background-color: #141414;
-  margin: 30px auto;
+  margin-top: 20px;
 }
 
-#video-group {
-  display: none;
+.text {
+  font-size: 24px;
+  margin-bottom: 20px;
 }
 
-#chat-window {
-  height: 400px;
-  overflow: auto;
-  background: #f9f9f9;
+.room-name {
+  padding: 10px;
+  width: 200px;
 }
 
-#output p {
-  padding: 14px 0px;
-  margin: 0 20px;
-  border-bottom: 1px solid #e9e9e9;
-  color: #555;
-}
-
-#feedback p {
-  color: #aaa;
-  padding: 14px 0px;
-  margin: 0 20px;
-}
-
-#output strong {
-  color: #000000;
-}
-
-label {
-  box-sizing: border-box;
-  display: block;
+.join-btn {
+  margin-top: 10px;
   padding: 10px 20px;
 }
 
-input {
-  padding: 20px;
-  box-sizing: border-box;
-  background: #eee;
-  display: block;
-  width: 100%;
-  background: rgb(255, 253, 253);
-  font-family: Nunito;
-  font-size: 16px;
-}
-
-button {
-  background: #141414;
-  color: #fff;
-  font-size: 18px;
-  padding: 12px 0;
-  width: 100%;
-  cursor: pointer;
-}
-
-#toggleBtns {
-  margin: 0 auto;
+.video-group {
   display: flex;
-  width: 400px;
-  gap: 10px;
-  justify-content: center;
+  flex-direction: column;
+  align-items: center;
+  margin-top: 20px;
 }
 
-#video-chat-room {
-  flex-wrap: wrap;
+.toggle-btns {
+  margin-bottom: 10px;
+}
+
+.video-shared-group {
+  position: relative;
+}
+
+.video-chat-room {
   display: flex;
-  gap: 10px;
+  justify-content: space-between;
+  margin-top: 20px;
 }
 </style>
