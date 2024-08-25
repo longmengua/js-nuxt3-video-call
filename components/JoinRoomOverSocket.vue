@@ -253,6 +253,11 @@ const setupStream = async () => {
   userVideoRef.value.onloadedmetadata = function () {
     userVideoRef.value.play();
   };
+
+  // 先關閉mic
+  toggleMic();
+  // 先關閉 video
+  // toggleCamera();
 }
 
 socket.on('created', async () => {
