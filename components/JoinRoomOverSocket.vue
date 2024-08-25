@@ -1,11 +1,16 @@
 <template>
   <div>
-    <div class="video-chat-lobby" ref="divVideoChatLobby">
+    <div class="video-chat-lobby" :style="{display: isOpenRoom ? 'none' : 'block'}">
       <h2 class="text">Video Chat Application</h2>
-      <input class="room-name" type="text" placeholder="Room Name" ref="roomInput" />
+      <input
+        class="room-name"
+        type="text"
+        v-model="roomName"
+        placeholder="Room Name"
+      />
       <button class="join-btn" @click="joinRoom">Join</button>
     </div>
-    <div class="video-group" ref="divVideoGroup">
+    <div class="video-group" :style="{display: !isOpenRoom ? 'none' : 'block'}">
       <div class="toggle-btns">
         <button @click="toggleScreenShare">Toggle Screen Share</button>
         <button @click="undo">Undo move in canvas</button>
@@ -13,7 +18,13 @@
         <button @click="toggleCamera">Toggle Camera</button>
       </div>
       <div class="video-shared-group" style="position: relative;">
-        <video class="screen-video" ref="screenVideo" autoplay playsinline style="width: 900px; height: 450px; border: 1px solid black;"></video>
+        <video
+          class="screen-video"
+          ref="screenVideo"
+          autoplay
+          playsinline
+          style="width: 900px; height: 450px; border: 1px solid black;"
+        ></video>
         <canvas
           width="900"
           height="450"
@@ -25,8 +36,21 @@
         ></canvas>
       </div>
       <div class="video-chat-room">
-        <video class="user-video" ref="userVideo" autoplay muted playsinline style="width: 320px; height: 240px; border: 1px solid black;"></video>
-        <video class="peer-video" ref="peerVideo" autoplay playsinline style="width: 320px; height: 240px; border: 1px solid black;"></video>
+        <video
+          class="user-video"
+          ref="userVideo"
+          autoplay
+          muted
+          playsinline
+          style="width: 320px; height: 240px; border: 1px solid black;"
+        ></video>
+        <video
+          class="peer-video"
+          ref="peerVideo"
+          autoplay
+          playsinline
+          style="width: 320px; height: 240px; border: 1px solid black;"
+        ></video>
       </div>
     </div>
   </div>
@@ -39,22 +63,20 @@ import { io } from 'socket.io-client';
 const config = useRuntimeConfig();
 const socketUrl = config.public.SOCKET_URL;
 const socket = io.connect(socketUrl);
-const divVideoChatLobby = ref(null);
-const divVideoGroup = ref(null);
 const userVideo = ref(null);
 const peerVideo = ref(null);
 const screenVideo = ref(null);
-const roomInput = ref(null);
+const roomName = ref('');
 const isScreenSharing = ref(false);
 const drawingHistory = ref([]);
 const canvas = ref(null);
+const isOpenRoom = ref(false);
 
 let isMouseActive = false;
 let x1, x2, y1, y2 = 0;
 let currentStep = [];
 
 let creator = false;
-let roomName;
 let rtcPeerConnection;
 let userStream;
 let screenStream;
@@ -132,17 +154,16 @@ const undo = () => {
 };
 
 const joinRoom = () => {
-  if (roomInput.value.value === '') {
+  if (roomName.value === '') {
     alert('Please enter a room name');
   } else {
-    roomName = roomInput.value.value;
-    socket.emit('join', roomName);
+    socket.emit('join', roomName.value);
   }
 };
 
 const OnIceCandidateFunction = (event) => {
   if (event.candidate) {
-    socket.emit('candidate', event.candidate, roomName);
+    socket.emit('candidate', event.candidate, roomName.value);
   }
 };
 
@@ -218,9 +239,8 @@ socket.on('created', () => {
       video: true,
     })
     .then((stream) => {
+      isOpenRoom.value = true;
       userStream = stream;
-      divVideoChatLobby.value.style = 'display:none';
-      divVideoGroup.value.style = 'display:block';
       userVideo.value.srcObject = stream;
       userVideo.value.onloadedmetadata = function () {
         userVideo.value.play();
@@ -239,14 +259,13 @@ socket.on('joined', () => {
       video: true,
     })
     .then((stream) => {
+      isOpenRoom.value = true;
       userStream = stream;
-      divVideoChatLobby.value.style = 'display:none';
-      divVideoGroup.value.style = 'display:block';
       userVideo.value.srcObject = stream;
       userVideo.value.onloadedmetadata = function () {
         userVideo.value.play();
       };
-      socket.emit('ready', roomName);
+      socket.emit('ready', roomName.value);
     })
     .catch((err) => {
       alert("Couldn't Access User Media");
@@ -268,7 +287,7 @@ socket.on('ready', () => {
       .createOffer()
       .then((offer) => {
         rtcPeerConnection.setLocalDescription(offer);
-        socket.emit('offer', offer, roomName);
+        socket.emit('offer', offer, roomName.value);
       })
       .catch((error) => {
         console.log(error);
@@ -276,8 +295,7 @@ socket.on('ready', () => {
   }
 });
 
-socket.on('candidate', (candidate) => {
-  const icecandidate = new RTCIceCandidate(candidate);
+socket.on('candidate', (icecandidate) => {
   rtcPeerConnection.addIceCandidate(icecandidate);
 });
 
@@ -292,7 +310,7 @@ socket.on('offer', (offer) => {
     .createAnswer()
     .then((answer) => {
       rtcPeerConnection.setLocalDescription(answer);
-      socket.emit('answer', answer, roomName);
+      socket.emit('answer', answer, roomName.value);
     })
     .catch((error) => {
       console.log(error);
@@ -303,10 +321,6 @@ socket.on('answer', (answer) => {
   rtcPeerConnection.setRemoteDescription(new RTCSessionDescription(answer));
 });
 
-onMounted(() => {
-  divVideoChatLobby.value.style = 'display:block';
-  divVideoGroup.value.style = 'display:none';
-});
 </script>
 
 <style scoped>
