@@ -1,13 +1,13 @@
 import { WebSocketServer, WebSocket } from 'ws';
 import { H3Event } from 'h3';
 
+const wss = new WebSocketServer({ noServer: true });
+const rooms: { [key: string]: Set<WebSocket> } = {};
+
 export default defineEventHandler(async (event: H3Event) => {
   const { req, res } = event.node;
 
-  // Check if it's a WebSocket upgrade request
   if (req.url === '/ws' && req.headers.upgrade?.toLowerCase() === 'websocket') {
-    const wss = new WebSocketServer({ noServer: true });
-
     // Handle the upgrade request
     (req.socket as any).server.on('upgrade', (request: any, socket: any, head: Buffer) => {
       if (request.url === '/ws') {
@@ -21,22 +21,47 @@ export default defineEventHandler(async (event: H3Event) => {
 
     // WebSocket server logic
     wss.on('connection', (ws: WebSocket) => {
-      console.log('Client connected');
+      // console.log('User Connected:');
 
-      ws.on('message', (message: MessageEvent) => {
-        const data = JSON.parse(message.toString());
-        console.log('Received message:', data);
+      ws.on('message', (message: string) => {
+        try {
+          const data = JSON.parse(message);
+          const { type, room, offer, answer, candidate } = data;
 
-        // Broadcast message to all connected clients
-        wss.clients.forEach((client: WebSocket) => {
-          if (client !== ws && client.readyState === WebSocket.OPEN) {
-            client.send(JSON.stringify(data));
+          if (type === 'join') {
+            if (!rooms[room]) rooms[room] = new Set();
+            if (rooms[room].size >= 2) {
+              ws.send(JSON.stringify({ type: 'full' }));
+              return;
+            }
+            rooms[room].add(ws);
+            if (rooms[room].size === 2) {
+              rooms[room].forEach(client => client.send(JSON.stringify({ type: 'ready' })));
+            } else {
+              ws.send(JSON.stringify({ type: 'created' }));
+            }
+          } else if (type === 'ready') {
+            const peers = Array.from(rooms[room] || []).filter(client => client !== ws);
+            peers.forEach(peer => peer.send(JSON.stringify({ type: 'ready' })));
+          } else if (type === 'offer' || type === 'answer' || type === 'candidate') {
+            const peers = Array.from(rooms[room] || []).filter(client => client !== ws);
+            peers.forEach(peer => peer.send(JSON.stringify({ type, [type]: type === 'candidate' ? candidate : (type === 'offer' ? offer : answer) })));
           }
-        });
+        } catch (err) {
+          console.error('Error processing message:', err);
+        }
       });
 
       ws.on('close', () => {
-        console.log('Client disconnected');
+        for (const room in rooms) {
+          rooms[room].delete(ws);
+          if (rooms[room].size === 0) delete rooms[room];
+        }
+        // console.log('User Disconnected:');
+      });
+
+      ws.on('error', (error) => {
+        console.error('WebSocket error:', error);
       });
     });
 
