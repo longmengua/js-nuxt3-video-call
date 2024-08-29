@@ -11,8 +11,6 @@ export default defineNuxtConfig({
   runtimeConfig: {
     public: {
       WEBSOCKET_URL: process.env.WEBSOCKET_URL,
-      PORT: process.env.PORT,
-      HOST: process.env.HOST,
     },
     private: {
       // for default configurations
