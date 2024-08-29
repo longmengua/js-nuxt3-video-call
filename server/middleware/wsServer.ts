@@ -21,8 +21,6 @@ export default defineEventHandler(async (event: H3Event) => {
 
     // WebSocket server logic
     wss.on('connection', (ws: WebSocket) => {
-      // console.log('User Connected:');
-
       ws.on('message', (message: string) => {
         try {
           const data = JSON.parse(message);
@@ -57,7 +55,6 @@ export default defineEventHandler(async (event: H3Event) => {
           rooms[room].delete(ws);
           if (rooms[room].size === 0) delete rooms[room];
         }
-        // console.log('User Disconnected:');
       });
 
       ws.on('error', (error) => {
