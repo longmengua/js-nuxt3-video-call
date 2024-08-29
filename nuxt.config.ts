@@ -11,12 +11,17 @@ export default defineNuxtConfig({
   runtimeConfig: {
     public: {
       SOCKET_URL: process.env.SOCKET_URL,
+      PORT: process.env.PORT,
+      HOST: process.env.HOST,
     },
     private: {
       // for default configurations
       WEBRTC_ROOMS_MAP: {} as Record<string, any>,
       LIMITED_PPL_A_ROOM: 2,
     },
+    serverMiddleware: [
+      { path: '/ws', handler: '~/server/middleware/wsServer.js' }
+    ]
   },
 
   routeRules: {
@@ -40,12 +45,6 @@ export default defineNuxtConfig({
 
   devtools: {
     enabled: true,
-  },
-
-  nitro: {
-    experimental: {
-      websocket: true
-    },
   },
 
   compatibilityDate: '2024-08-30',

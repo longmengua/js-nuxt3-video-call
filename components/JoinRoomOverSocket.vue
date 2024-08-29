@@ -3,28 +3,28 @@
     <div class="video-chat-lobby" :style="{display: uiState.isOpenRoom ? 'none' : 'block'}">
       <h2 class="text">Video Chat Application</h2>
       <input
+        v-model="roomName"
         class="room-name"
         type="text"
-        v-model="roomName"
         placeholder="Room Name"
       />
       <button class="join-btn" @click="joinRoom">Join</button>
     </div>
     <div :style="{display: !uiState.isOpenRoom ? 'none' : 'block'}">
       <div class="video-group">
-        <div class="video-shared-group" :style="{ position: 'relative', width: `${videoWidth}px`, height: `${videoHeight}px` }">
+        <div class="video-shared-group" :style="{ position: 'relative', width: `${uiState.videoWidth}px`, height: `${uiState.videoHeight}px` }">
           <video
-            class="screen-video"
             ref="screenVideoRef"
+            class="screen-video"
             autoplay
             playsinline
             :style="{ width: `${uiState.videoSharing.width}px`, height: `${uiState.videoSharing.height}px`, border: '1px solid black' }"
           ></video>
           <canvas
+            ref="canvasRef"
             :width="`${uiState.videoSharing.width}px`"
             :height="`${uiState.videoSharing.height}px`"
             :style="{ border: '1px solid black', position: 'absolute', top: '0', left: '0' }"
-            ref="canvasRef"
             @mousedown="onMouseDown"
             @mousemove="onMouseMove"
             @mouseup="onMouseUp"
@@ -32,16 +32,16 @@
         </div>
         <div class="video-chat-room">
           <video
-            class="user-video"
             ref="userVideoRef"
+            class="user-video"
             autoplay
             muted
             playsinline
             :style="{ width: '320px', height: '240px', border: '1px solid black' }"
           ></video>
           <video
-            class="peer-video"
             ref="peerVideoRef"
+            class="peer-video"
             autoplay
             playsinline
             :style="{ width: '320px', height: '240px', border: '1px solid black' }"
@@ -60,10 +60,6 @@
 
 <script setup>
 import { ref } from 'vue';
-import { io } from 'socket.io-client';
-
-const config = useRuntimeConfig();
-const socket = io.connect(config.public.SOCKET_URL);
 
 const userVideoRef = ref(null);
 const peerVideoRef = ref(null);
@@ -91,20 +87,22 @@ const state = {
   rtcPeerConnection: null,
   userStream: null,
   screenStream: null,
-}
+  creator: false,
+};
 
-// Contains the stun server URL we will be using.
 const iceServers = {
   iceServers: [
-    {
-      urls: 'turn:localhost:3478',
-      username: 'user',
-      credential: '1234qwer'
-    },
-    // { urls: 'stun:stun.services.mozilla.com' },
-    // { urls: 'stun:stun.l.google.com:19302' },
+    // {
+    //   urls: 'turn:localhost:3478',
+    //   username: 'user',
+    //   credential: '1234qwer'
+    // },
+    { urls: 'stun:stun.services.mozilla.com' },
+    { urls: 'stun:stun.l.google.com:19302' },
   ],
 };
+
+const ws = ref(null);
 
 const getCanvasContext = () => {
   const ctx = canvasRef.value.getContext('2d');
@@ -118,7 +116,6 @@ const getCanvasContext = () => {
 const onMouseDown = (e) => {
   state.isMouseActive = true;
 
-  // Calculate canvas position and size
   const rect = canvasRef.value.getBoundingClientRect();
   state.x1 = e.clientX - rect.left;
   state.y1 = e.clientY - rect.top;
@@ -173,25 +170,132 @@ const undo = () => {
   });
 };
 
+// Replace the WebSocket initialization part in your Vue component's script
 const joinRoom = () => {
   if (roomName.value === '') {
     alert('Please enter a room name');
   } else {
-    socket.emit('join', roomName.value);
+    // Connect to the Nuxt server's WebSocket
+    ws.value = new WebSocket('ws://localhost:3000/ws');
+
+    ws.value.onopen = () => {
+      console.log('Connected to WebSocket server');
+      // Send join room message after opening connection
+      ws.value.send(JSON.stringify({ type: 'join', room: roomName.value }));
+    };
+
+    ws.value.onmessage = (event) => {
+      const data = JSON.parse(event.data);
+      // Handle incoming WebSocket messages
+      switch (data.type) {
+        case 'created':
+          onCreated();
+          break;
+        case 'joined':
+          onJoined();
+          break;
+        case 'full':
+          alert("Room is Full, Can't Join");
+          break;
+        case 'ready':
+          if (state.creator) {
+            setupRTCPeerConnection();
+            createOffer();
+          }
+          break;
+        case 'offer':
+          handleOffer(data.offer);
+          break;
+        case 'answer':
+          handleAnswer(data.answer);
+          break;
+        case 'candidate':
+          handleCandidate(data.candidate);
+          break;
+        default:
+          break;
+      }
+    };
   }
 };
 
-const OnIceCandidateFunction = (event) => {
-  if (event.candidate) {
-    socket.emit('candidate', event.candidate, roomName.value);
-  }
+const onCreated = async () => {
+  state.creator = true;
+  await setupStream();
 };
 
-const OnTrackFunction = (event) => {
-  peerVideoRef.value.srcObject = event.streams[0];
-  peerVideoRef.value.onloadedmetadata = function () {
-    peerVideoRef.value.play();
+const onJoined = async () => {
+  state.creator = false;
+  await setupStream();
+  ws.value.send(JSON.stringify({ type: 'ready', room: roomName.value }));
+};
+
+const setupStream = async () => {
+  const mediaStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: true });
+  uiState.value.isOpenRoom = true;
+  state.userStream = mediaStream;
+  userVideoRef.value.srcObject = mediaStream;
+  userVideoRef.value.onloadedmetadata = function () {
+    userVideoRef.value.play();
   };
+
+  // Disable mic initially
+  toggleMic();
+  // Disable video initially
+  // toggleCamera();
+};
+
+const setupRTCPeerConnection = () => {
+  state.rtcPeerConnection = new RTCPeerConnection(iceServers);
+  state.rtcPeerConnection.onicecandidate = (event) => {
+    if (event.candidate) {
+      ws.value.send(JSON.stringify({ type: 'candidate', candidate: event.candidate, room: roomName.value }));
+    }
+  };
+
+  state.rtcPeerConnection.ontrack = (event) => {
+    peerVideoRef.value.srcObject = event.streams[0];
+    peerVideoRef.value.onloadedmetadata = function () {
+      peerVideoRef.value.play();
+    };
+  };
+
+  state.rtcPeerConnection.addTrack(state.userStream.getTracks()[0], state.userStream);
+  state.rtcPeerConnection.addTrack(state.userStream.getTracks()[1], state.userStream);
+};
+
+const createOffer = () => {
+  state.rtcPeerConnection.createOffer()
+    .then((offer) => {
+      state.rtcPeerConnection.setLocalDescription(offer);
+      ws.value.send(JSON.stringify({ type: 'offer', offer, room: roomName.value }));
+    })
+    .catch((error) => {
+      // eslint-disable-next-line no-console
+      console.log(error);
+    });
+};
+
+const handleOffer = (offer) => {
+  setupRTCPeerConnection();
+  state.rtcPeerConnection.setRemoteDescription(new RTCSessionDescription(offer));
+  state.rtcPeerConnection.createAnswer()
+    .then((answer) => {
+      state.rtcPeerConnection.setLocalDescription(answer);
+      ws.value.send(JSON.stringify({ type: 'answer', answer, room: roomName.value }));
+    })
+    .catch((error) => {
+      // eslint-disable-next-line no-console
+      console.log(error);
+    });
+};
+
+const handleAnswer = (answer) => {
+  state.rtcPeerConnection.setRemoteDescription(new RTCSessionDescription(answer));
+};
+
+const handleCandidate = (candidate) => {
+  state.rtcPeerConnection.addIceCandidate(new RTCIceCandidate(candidate));
 };
 
 const toggleMic = () => {
@@ -217,13 +321,11 @@ const startScreenShare = async () => {
     state.screenStream = await navigator.mediaDevices.getDisplayMedia({ video: true });
     const screenTrack = state.screenStream.getTracks()[0];
 
-    // Display the screen stream in the screenVideo element locally
     screenVideoRef.value.srcObject = state.screenStream;
     screenVideoRef.value.onloadedmetadata = function () {
       screenVideoRef.value.play();
     };
 
-    // Add the screen track to the RTCPeerConnection
     const sender = state.rtcPeerConnection.getSenders().find((s) => s.track.kind === 'video');
     sender.replaceTrack(screenTrack);
 
@@ -233,97 +335,20 @@ const startScreenShare = async () => {
 
     uiState.value.isScreenSharing = true;
   } catch (error) {
+    // eslint-disable-next-line no-console
     console.error("Error sharing screen: ", error);
   }
 };
 
 const stopScreenShare = () => {
   const videoTrack = state.userStream.getVideoTracks()[0];
-
-  // Replace the screen track with the original video track
   const sender = state.rtcPeerConnection.getSenders().find((s) => s.track.kind === 'video');
   sender.replaceTrack(videoTrack);
 
-  // Clear the screenVideo element and revert to webcam stream
   screenVideoRef.value.srcObject = null;
   state.screenStream.getTracks().forEach((track) => track.stop());
   uiState.value.isScreenSharing = false;
 };
-
-const setupStream = async () => {
-  const mediaStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: true })
-  uiState.value.isOpenRoom = true;
-  state.userStream = mediaStream;
-  userVideoRef.value.srcObject = mediaStream;
-  userVideoRef.value.onloadedmetadata = function () {
-    userVideoRef.value.play();
-  };
-
-  // 先關閉mic
-  toggleMic();
-  // 先關閉 video
-  // toggleCamera();
-}
-
-socket.on('created', async () => {
-  state.creator = true;
-  await setupStream()
-});
-
-socket.on('joined', async () => {
-  state.creator = false;
-  await setupStream()
-  socket.emit('ready', roomName.value);
-});
-
-socket.on('full', () => {
-  alert("Room is Full, Can't Join");
-});
-
-socket.on('ready', () => {
-  if (state.creator) {
-    state.rtcPeerConnection = new RTCPeerConnection(iceServers);
-    state.rtcPeerConnection.onicecandidate = OnIceCandidateFunction;
-    state.rtcPeerConnection.ontrack = OnTrackFunction;
-    state.rtcPeerConnection.addTrack(state.userStream.getTracks()[0], state.userStream);
-    state.rtcPeerConnection.addTrack(state.userStream.getTracks()[1], state.userStream);
-    state.rtcPeerConnection
-      .createOffer()
-      .then((offer) => {
-        state.rtcPeerConnection.setLocalDescription(offer);
-        socket.emit('offer', offer, roomName.value);
-      })
-      .catch((error) => {
-        console.log(error);
-      });
-  }
-});
-
-socket.on('candidate', (icecandidate) => {
-  state.rtcPeerConnection.addIceCandidate(icecandidate);
-});
-
-socket.on('offer', (offer) => {
-  state.rtcPeerConnection = new RTCPeerConnection(iceServers);
-  state.rtcPeerConnection.onicecandidate = OnIceCandidateFunction;
-  state.rtcPeerConnection.ontrack = OnTrackFunction;
-  state.rtcPeerConnection.addTrack(state.userStream.getTracks()[0], state.userStream);
-  state.rtcPeerConnection.addTrack(state.userStream.getTracks()[1], state.userStream);
-  state.rtcPeerConnection.setRemoteDescription(new RTCSessionDescription(offer));
-  state.rtcPeerConnection
-    .createAnswer()
-    .then((answer) => {
-      state.rtcPeerConnection.setLocalDescription(answer);
-      socket.emit('answer', answer, roomName.value);
-    })
-    .catch((error) => {
-      console.log(error);
-    });
-});
-
-socket.on('answer', (answer) => {
-  state.rtcPeerConnection.setRemoteDescription(new RTCSessionDescription(answer));
-});
 
 </script>
 
