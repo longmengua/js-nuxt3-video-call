@@ -41,13 +41,7 @@ function deploy_steps {
         display_error "Unsupported environment: $1, options: dev, uat, prod"
     fi
 
-    if [ $2 == "ssr" ]; then
-        DOCKERFILE_NAME=dockerfile.ssr
-    elif [ $2 == "ssg" ]; then
-        DOCKERFILE_NAME=dockerfile.ssg
-    else
-        display_error "Unsupported environment: $2, options: ssr, ssg"
-    fi
+    DOCKERFILE_NAME=dockerfile.ssr
 
     # Step 3
     echo "===> Start building"
