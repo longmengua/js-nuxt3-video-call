@@ -60,7 +60,7 @@ function deploy_steps {
     # Step 4
     echo "===> Start deploying"
     docker rm -f $NAME \
-        && docker run -d -p $PORT:3000 --name $NAME $NAME
+        && docker run -d -p $PORT:80 --name $NAME $NAME
 
     # Step 5
     echo "===> Clean cache of container and volume"
