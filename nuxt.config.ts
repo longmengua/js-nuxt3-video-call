@@ -18,6 +18,7 @@ export default defineNuxtConfig({
       LIMITED_PPL_A_ROOM: 2,
     },
   },
+
   routeRules: {
   //   // Homepage pre-rendered at build time
   //   '/': { prerender: true },
@@ -36,12 +37,16 @@ export default defineNuxtConfig({
   //   // Redirects legacy urls
   //   '/old-page': { redirect: '/new-page' }
   },
+
   devtools: {
     enabled: true,
   },
+
   nitro: {
     experimental: {
       websocket: true
     },
   },
+
+  compatibilityDate: '2024-08-30',
 })
