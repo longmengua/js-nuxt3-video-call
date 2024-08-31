@@ -47,7 +47,7 @@ function deploy_steps {
     echo "===> Start building"
     docker build \
         -f $DOCKERFILE_NAME \
-        --build-arg PAT="$3" \
+        --build-arg PAT="$2" \
         --build-arg ENV_FILE_NAME=$ENV_FILE_NAME \
         --build-arg APP_ENV="$1" \
         -t $NAME .
@@ -61,15 +61,6 @@ function deploy_steps {
     echo "===> Start deploying"
     docker rm -f $NAME \
         && docker run -d -p $PORT:3000 --name $NAME $NAME
-
-    # Step 5
-    echo "===> Clean cache of container and volume"
-    # if [ $1 == "prod" ]; then
-        # docker volume prune -f
-        # docker container prune -f
-    # else
-        # docker system prune -af
-    # fi
 }
 
 # Assign argument to a variable
@@ -77,8 +68,5 @@ branch=$1
 render=$2
 pat=$3
 
-# Perform common steps
-common_steps $branch
-
 # Perform environment-specific steps
-deploy_steps $branch $render $pat
+deploy_steps $branch $pat

@@ -1,62 +1,3 @@
-<template>
-  <div>
-    <div class="video-chat-lobby" :style="{display: uiState.isOpenRoom ? 'none' : 'block'}">
-      <h2 class="text">Video Chat Application</h2>
-      <input
-        class="room-name"
-        type="text"
-        v-model="roomName"
-        placeholder="Room Name"
-      />
-      <button class="join-btn" @click="joinRoom">Join</button>
-    </div>
-    <div :style="{display: !uiState.isOpenRoom ? 'none' : 'block'}">
-      <div class="video-group">
-        <div class="video-shared-group" :style="{ position: 'relative', width: `${videoWidth}px`, height: `${videoHeight}px` }">
-          <video
-            class="screen-video"
-            ref="screenVideoRef"
-            autoplay
-            playsinline
-            :style="{ width: `${uiState.videoSharing.width}px`, height: `${uiState.videoSharing.height}px`, border: '1px solid black' }"
-          ></video>
-          <canvas
-            :width="`${uiState.videoSharing.width}px`"
-            :height="`${uiState.videoSharing.height}px`"
-            :style="{ border: '1px solid black', position: 'absolute', top: '0', left: '0' }"
-            ref="canvasRef"
-            @mousedown="onMouseDown"
-            @mousemove="onMouseMove"
-            @mouseup="onMouseUp"
-          ></canvas>
-        </div>
-        <div class="video-chat-room">
-          <video
-            class="user-video"
-            ref="userVideoRef"
-            autoplay
-            muted
-            playsinline
-            :style="{ width: '320px', height: '240px', border: '1px solid black' }"
-          ></video>
-          <video
-            class="peer-video"
-            ref="peerVideoRef"
-            autoplay
-            playsinline
-            :style="{ width: '320px', height: '240px', border: '1px solid black' }"
-          ></video>
-        </div>
-        <div class="toggle-btns">
-          <button @click="toggleScreenShare">Toggle Screen Share</button>
-          <button @click="undo">Undo move in canvas</button>
-          <button @click="toggleMic">Toggle Microphone</button>
-          <button @click="toggleCamera">Toggle Camera</button>
-        </div>
-      </div>
-    </div>
-  </div>
-</template>
 
 <script setup>
 import { ref } from 'vue';
@@ -96,14 +37,13 @@ const state = {
 // Contains the stun server URL we will be using.
 const iceServers = {
   iceServers: [
+    { urls: 'stun:150.116.89.239:3478' },
     {
-      urls: 'turn:localhost:3478',
-      username: 'user',
-      credential: '1234qwer'
-    },
-    // { urls: 'stun:stun.services.mozilla.com' },
-    // { urls: 'stun:stun.l.google.com:19302' },
-  ],
+      urls: 'turn:150.116.89.239:5349',
+      username: 'waltor',  // Replace with actual username from Coturn config
+      credential: 'waltor' // Replace with actual password from Coturn config
+    }
+  ]
 };
 
 const getCanvasContext = () => {
@@ -326,6 +266,66 @@ socket.on('answer', (answer) => {
 });
 
 </script>
+
+<template>
+  <div>
+    <div class="video-chat-lobby" :style="{display: uiState.isOpenRoom ? 'none' : 'block'}">
+      <h2 class="text">Video Chat Application</h2>
+      <input
+        class="room-name"
+        type="text"
+        v-model="roomName"
+        placeholder="Room Name"
+      />
+      <button class="join-btn" @click="joinRoom">Join</button>
+    </div>
+    <div :style="{display: !uiState.isOpenRoom ? 'none' : 'block'}">
+      <div class="video-group">
+        <div class="video-shared-group" :style="{ position: 'relative', width: `${videoWidth}px`, height: `${videoHeight}px` }">
+          <video
+            class="screen-video"
+            ref="screenVideoRef"
+            autoplay
+            playsinline
+            :style="{ width: `${uiState.videoSharing.width}px`, height: `${uiState.videoSharing.height}px`, border: '1px solid black' }"
+          ></video>
+          <canvas
+            :width="`${uiState.videoSharing.width}px`"
+            :height="`${uiState.videoSharing.height}px`"
+            :style="{ border: '1px solid black', position: 'absolute', top: '0', left: '0' }"
+            ref="canvasRef"
+            @mousedown="onMouseDown"
+            @mousemove="onMouseMove"
+            @mouseup="onMouseUp"
+          ></canvas>
+        </div>
+        <div class="video-chat-room">
+          <video
+            class="user-video"
+            ref="userVideoRef"
+            autoplay
+            muted
+            playsinline
+            :style="{ width: '320px', height: '240px', border: '1px solid black' }"
+          ></video>
+          <video
+            class="peer-video"
+            ref="peerVideoRef"
+            autoplay
+            playsinline
+            :style="{ width: '320px', height: '240px', border: '1px solid black' }"
+          ></video>
+        </div>
+        <div class="toggle-btns">
+          <button @click="toggleScreenShare">Toggle Screen Share</button>
+          <button @click="undo">Undo move in canvas</button>
+          <button @click="toggleMic">Toggle Microphone</button>
+          <button @click="toggleCamera">Toggle Camera</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</template>
 
 <style scoped>
 .video-chat-lobby {
