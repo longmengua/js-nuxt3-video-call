@@ -40,8 +40,8 @@ const iceServers = {
     { urls: 'stun:150.116.89.239:3478' },
     {
       urls: 'turn:150.116.89.239:5349',
-      username: 'waltor',  // Replace with actual username from Coturn config
-      credential: 'waltor' // Replace with actual password from Coturn config
+      username: 'funday',  // Replace with actual username from Coturn config
+      credential: 'funday' // Replace with actual password from Coturn config
     }
   ]
 };
