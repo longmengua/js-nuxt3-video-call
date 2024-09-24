@@ -41,19 +41,13 @@ function deploy_steps {
         display_error "Unsupported environment: $1, options: dev, uat, prod"
     fi
 
-    if [ $2 == "ssr" ]; then
-        DOCKERFILE_NAME=dockerfile.ssr
-    elif [ $2 == "ssg" ]; then
-        DOCKERFILE_NAME=dockerfile.ssg
-    else
-        display_error "Unsupported environment: $2, options: ssr, ssg"
-    fi
+    DOCKERFILE_NAME=dockerfile
 
     # Step 3
     echo "===> Start building"
     docker build \
         -f $DOCKERFILE_NAME \
-        --build-arg PAT="$3" \
+        --build-arg PAT="$2" \
         --build-arg ENV_FILE_NAME=$ENV_FILE_NAME \
         --build-arg APP_ENV="$1" \
         -t $NAME .
@@ -70,21 +64,14 @@ function deploy_steps {
 
     # Step 5
     echo "===> Clean cache of container and volume"
-    # if [ $1 == "prod" ]; then
-        # docker volume prune -f
-        # docker container prune -f
-    # else
-        # docker system prune -af
-    # fi
 }
 
 # Assign argument to a variable
 branch=$1
-render=$2
-pat=$3
+pat=$2
 
 # Perform common steps
 common_steps $branch
 
 # Perform environment-specific steps
-deploy_steps $branch $render $pat
+deploy_steps $branch $pat

@@ -1,4 +1,9 @@
-# js-video-call
+# js-nuxt-webRTC
+
+## feature
+
+- audio call
+- video call
 
 ## docker build
 
